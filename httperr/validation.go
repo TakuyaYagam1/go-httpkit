@@ -11,5 +11,6 @@ func NewValidationErrorf(format string, args ...any) *HTTPError {
 		Err:        fmt.Errorf(format, args...),
 		StatusCode: http.StatusBadRequest,
 		Code:       "VALIDATION_ERROR",
+		IsExpected: true,
 	}
 }

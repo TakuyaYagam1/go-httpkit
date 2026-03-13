@@ -11,6 +11,7 @@ import (
 
 type contextKey string
 
+// UserIDKey is the context key for the authenticated user ID (string, e.g. UUID). Set by auth middleware.
 const UserIDKey contextKey = "user_id"
 
 // GetUserID returns the user ID from context (set by auth middleware).

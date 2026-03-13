@@ -31,13 +31,7 @@ func ClampPerPage(p *int, defaultVal, maxVal int) int {
 
 // ClampLimit returns limit clamped to [defaultVal, maxVal], or defaultVal if nil/<=0.
 func ClampLimit(p *int, defaultVal, maxVal int) int {
-	if p == nil || *p <= 0 {
-		return defaultVal
-	}
-	if *p > maxVal {
-		return maxVal
-	}
-	return *p
+	return ClampPerPage(p, defaultVal, maxVal)
 }
 
 // ParseIntQuery parses the first query parameter key as positive int; returns nil if missing or invalid.

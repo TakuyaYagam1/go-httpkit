@@ -9,6 +9,12 @@ import (
 	"github.com/TakuyaYagam1/go-httpkit/httperr"
 )
 
+type httpErrorWithStatus interface {
+	Error() string
+	HTTPStatus() int
+	GetCode() string
+}
+
 // ErrorResponse is the JSON shape for error responses.
 type ErrorResponse struct {
 	Code    string `json:"code"`
@@ -28,36 +34,13 @@ type ValidationErrorResponse struct {
 	Errors  []ValidationErrorItem `json:"errors,omitempty"`
 }
 
-func codeFromStatus(status int) string {
-	switch status {
-	case http.StatusBadRequest:
-		return "BAD_REQUEST"
-	case http.StatusUnauthorized:
-		return "UNAUTHORIZED"
-	case http.StatusForbidden:
-		return "FORBIDDEN"
-	case http.StatusNotFound:
-		return "NOT_FOUND"
-	case http.StatusConflict:
-		return "CONFLICT"
-	case http.StatusGone:
-		return "GONE"
-	case http.StatusPaymentRequired:
-		return "PAYMENT_REQUIRED"
-	case http.StatusTooManyRequests:
-		return "RATE_LIMIT_EXCEEDED"
-	default:
-		return "INTERNAL_ERROR"
-	}
-}
-
-// HandleError writes a JSON error response. If err is *httperr.HTTPError, uses its status and code; otherwise 500.
+// HandleError writes a JSON error response. If err implements httpErrorWithStatus, uses its status and code; otherwise 500.
 func HandleError(w http.ResponseWriter, r *http.Request, err error) {
-	var httpErr *httperr.HTTPError
+	var httpErr httpErrorWithStatus
 	if errors.As(err, &httpErr) {
-		code := httpErr.Code
+		code := httpErr.GetCode()
 		if code == "" {
-			code = codeFromStatus(httpErr.HTTPStatus())
+			code = httperr.CodeFromStatus(httpErr.HTTPStatus())
 		}
 		message := httpErr.Error()
 		if httpErr.HTTPStatus() >= http.StatusInternalServerError {
@@ -72,5 +55,5 @@ func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 	}
 
 	render.Status(r, http.StatusInternalServerError)
-	render.JSON(w, r, ErrorResponse{Code: "INTERNAL_ERROR", Message: "Internal server error"})
+	render.JSON(w, r, ErrorResponse{Code: httperr.CodeFromStatus(http.StatusInternalServerError), Message: "Internal server error"})
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log/slog"
 	"net/http"
 	"strings"
 
@@ -63,19 +62,12 @@ func validationErrorsToItems(valErr playvalidator.ValidationErrors) []Validation
 }
 
 // DecodeAndValidate reads and validates JSON from the request body. On error writes response and returns false.
-func DecodeAndValidate[T any](
-	w http.ResponseWriter,
-	r *http.Request,
-	v Validator,
-	log *slog.Logger,
-	operation string,
-) (T, bool) {
+func DecodeAndValidate[T any](w http.ResponseWriter, r *http.Request, v Validator) (T, bool) {
 	var req T
 	limited := io.LimitReader(r.Body, MaxRequestBodySize)
 	dec := json.NewDecoder(limited)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&req); err != nil {
-		log.ErrorContext(r.Context(), "httputil - "+operation+" - Decode", "error", err)
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, ErrorResponse{Code: "INVALID_JSON", Message: "invalid JSON format"})
 		return req, false
@@ -87,7 +79,6 @@ func DecodeAndValidate[T any](
 	}
 
 	if err := v.Validate(req); err != nil {
-		log.ErrorContext(r.Context(), "httputil - "+operation+" - Validate", "error", err)
 		render.Status(r, http.StatusBadRequest)
 		var valErr playvalidator.ValidationErrors
 		if errors.As(err, &valErr) {

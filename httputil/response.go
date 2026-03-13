@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/render"
+
+	"github.com/TakuyaYagam1/go-httpkit/httperr"
 )
 
 // RenderJSON writes data as JSON with the given status.
@@ -23,6 +25,12 @@ func RenderCreated[T any](w http.ResponseWriter, r *http.Request, data T) {
 	render.JSON(w, r, data)
 }
 
+// RenderAccepted sends 202 Accepted with JSON body.
+func RenderAccepted[T any](w http.ResponseWriter, r *http.Request, data T) {
+	render.Status(r, http.StatusAccepted)
+	render.JSON(w, r, data)
+}
+
 // RenderOK sends 200 OK with JSON body.
 func RenderOK[T any](w http.ResponseWriter, r *http.Request, data T) {
 	render.Status(r, http.StatusOK)
@@ -32,7 +40,7 @@ func RenderOK[T any](w http.ResponseWriter, r *http.Request, data T) {
 // RenderError sends JSON error with status and message; code is derived from status.
 func RenderError(w http.ResponseWriter, r *http.Request, status int, message string) {
 	render.Status(r, status)
-	render.JSON(w, r, ErrorResponse{Code: codeFromStatus(status), Message: message})
+	render.JSON(w, r, ErrorResponse{Code: httperr.CodeFromStatus(status), Message: message})
 }
 
 // RenderErrorWithCode sends JSON error with explicit code.
