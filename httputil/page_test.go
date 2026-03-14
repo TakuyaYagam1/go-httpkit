@@ -105,3 +105,26 @@ func TestParseIntQuery(t *testing.T) {
 		}
 	}
 }
+
+func TestTotalPages(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		total   int64
+		perPage int
+		want    int
+	}{
+		{0, 10, 0},
+		{1, 10, 1},
+		{10, 10, 1},
+		{11, 10, 2},
+		{25, 10, 3},
+		{0, 0, 0},
+		{5, -1, 0},
+	}
+	for _, tt := range tests {
+		got := TotalPages(tt.total, tt.perPage)
+		if got != tt.want {
+			t.Errorf("TotalPages(%d, %d) = %d, want %d", tt.total, tt.perPage, got, tt.want)
+		}
+	}
+}

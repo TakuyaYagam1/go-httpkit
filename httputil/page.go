@@ -51,3 +51,30 @@ func ParseIntQuery(r *http.Request, key string) *int {
 func Ptr[T any](v T) *T {
 	return &v
 }
+
+func TotalPages(total int64, perPage int) int {
+	if perPage <= 0 {
+		return 0
+	}
+	n := int(total) / perPage
+	if int(total)%perPage != 0 {
+		n++
+	}
+	return n
+}
+
+type PaginationMeta struct {
+	Page       int
+	PerPage    int
+	Total      int
+	TotalPages int
+}
+
+func NewPaginationMeta(page, perPage int, total int64) PaginationMeta {
+	return PaginationMeta{
+		Page:       page,
+		PerPage:    perPage,
+		Total:      int(total),
+		TotalPages: TotalPages(total, perPage),
+	}
+}

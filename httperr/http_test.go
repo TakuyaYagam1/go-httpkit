@@ -1,6 +1,7 @@
 package httperr
 
 import (
+	"errors"
 	"net/http"
 	"testing"
 )
@@ -61,5 +62,23 @@ func TestNewValidationErrorf(t *testing.T) {
 	}
 	if err.Error() == "" {
 		t.Error("Error() should not be empty")
+	}
+}
+
+func TestIsExpectedClientError(t *testing.T) {
+	t.Parallel()
+	if IsExpectedClientError(nil) {
+		t.Error("nil should not be expected client error")
+	}
+	if !IsExpectedClientError(ErrInvalidID) {
+		t.Error("ErrInvalidID (4xx) should be reported as expected client error")
+	}
+	err := New(errors.New("x"), http.StatusNotFound, "NOT_FOUND")
+	if !IsExpectedClientError(err) {
+		t.Error("4xx HTTPError should be expected client error")
+	}
+	err500 := New(errors.New("x"), http.StatusInternalServerError, "INTERNAL")
+	if IsExpectedClientError(err500) {
+		t.Error("5xx should not be expected client error")
 	}
 }

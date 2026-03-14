@@ -8,11 +8,11 @@ import (
 func TestGetClientIP(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name               string
-		remoteAddr         string
-		headers            map[string]string
-		trustedProxyCIDRs  []string
-		want               string
+		name              string
+		remoteAddr        string
+		headers           map[string]string
+		trustedProxyCIDRs []string
+		want              string
 	}{
 		{"no proxy", "192.168.1.1:12345", nil, nil, "192.168.1.1"},
 		{"no trusted CIDRs ignores headers", "192.168.1.1:12345", map[string]string{"X-Real-IP": "10.0.0.1"}, nil, "192.168.1.1"},

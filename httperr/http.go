@@ -55,3 +55,11 @@ func (e *HTTPError) Error() string   { return e.Err.Error() }
 func (e *HTTPError) Unwrap() error   { return e.Err }
 func (e *HTTPError) HTTPStatus() int { return e.StatusCode }
 func (e *HTTPError) GetCode() string { return e.Code }
+
+func IsExpectedClientError(err error) bool {
+	var he *HTTPError
+	if errors.As(err, &he) {
+		return he.IsExpected
+	}
+	return false
+}

@@ -7,7 +7,53 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/TakuyaYagam1/go-httpkit/httperr"
+	logger "github.com/TakuyaYagam1/go-logkit"
 )
+
+type ErrorLogEvent interface {
+	Info(msg string)
+	Error(msg string)
+}
+
+type ErrorLogger interface {
+	WithError(err error) ErrorLogEvent
+}
+
+type logkitErrorAdapter struct{ l logger.Logger }
+
+func (a *logkitErrorAdapter) WithError(err error) ErrorLogEvent {
+	return &logkitErrorEvent{a.l.WithError(err)}
+}
+
+type logkitErrorEvent struct{ l logger.Logger }
+
+func (e *logkitErrorEvent) Info(msg string)  { e.l.Info(msg) }
+func (e *logkitErrorEvent) Error(msg string) { e.l.Error(msg) }
+
+func NewErrorLogger(l logger.Logger) ErrorLogger {
+	if l == nil {
+		return nil
+	}
+	return &logkitErrorAdapter{l: l}
+}
+
+type ErrorHandler struct {
+	Logger ErrorLogger
+}
+
+func (h *ErrorHandler) Handle(w http.ResponseWriter, r *http.Request, err error, msg string) bool {
+	if err == nil {
+		return false
+	}
+	ev := h.Logger.WithError(err)
+	if httperr.IsExpectedClientError(err) {
+		ev.Info(msg)
+	} else {
+		ev.Error(msg)
+	}
+	HandleError(w, r, err)
+	return true
+}
 
 type httpErrorWithStatus interface {
 	Error() string
