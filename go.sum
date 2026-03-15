@@ -1,5 +1,5 @@
-github.com/TakuyaYagam1/go-logkit v0.1.0 h1:W4rs8WTiuklJuS70+mZR7EDqXR1wZ4tRMVc8Xh4cwhQ=
-github.com/TakuyaYagam1/go-logkit v0.1.0/go.mod h1:giRMvCptC7y0TU4ZMZShU/0ZSEq+duyx4NoXJbMWyRA=
+github.com/TakuyaYagam1/go-logkit v0.1.1 h1:CxHlQBX5pcI4QqJAoW7H5ZFW6BJCglCOyF6/DCd3Bjg=
+github.com/TakuyaYagam1/go-logkit v0.1.1/go.mod h1:giRMvCptC7y0TU4ZMZShU/0ZSEq+duyx4NoXJbMWyRA=
 github.com/ajg/form v1.5.1/go.mod h1:uL1WgH+h2mgNtvBq0339dVnzXdBETtL2LeUXaIv25UY=
 github.com/ajg/form v1.7.1 h1:OsnBDzTkrWdrxvEnO68I72ZVGJGNaMwPhoAm0V+llgc=
 github.com/ajg/form v1.7.1/go.mod h1:HL757PzLyNkj5AIfptT6L+iGNeXTlnrr/oDePGc/y7Q=
