@@ -46,7 +46,9 @@ func TestRenderCreated(t *testing.T) {
 		t.Errorf("status = %d, want 201", w.Code)
 	}
 	var body map[string]int
-	_ = json.NewDecoder(w.Body).Decode(&body)
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
 	if body["id"] != 1 {
 		t.Errorf("body = %v", body)
 	}
@@ -61,7 +63,9 @@ func TestRenderAccepted(t *testing.T) {
 		t.Errorf("status = %d, want 202", w.Code)
 	}
 	var body map[string]string
-	_ = json.NewDecoder(w.Body).Decode(&body)
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
 	if body["task"] != "queued" {
 		t.Errorf("body = %v", body)
 	}
@@ -76,7 +80,9 @@ func TestRenderOK(t *testing.T) {
 		t.Errorf("status = %d, want 200", w.Code)
 	}
 	var body string
-	_ = json.NewDecoder(w.Body).Decode(&body)
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
 	if body != "ok" {
 		t.Errorf("body = %q", body)
 	}
@@ -91,7 +97,9 @@ func TestRenderError(t *testing.T) {
 		t.Errorf("status = %d, want 400", w.Code)
 	}
 	var body ErrorResponse
-	_ = json.NewDecoder(w.Body).Decode(&body)
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
 	if body.Code != "BAD_REQUEST" {
 		t.Errorf("Code = %q", body.Code)
 	}
@@ -109,7 +117,9 @@ func TestRenderErrorWithCode(t *testing.T) {
 		t.Errorf("status = %d, want 403", w.Code)
 	}
 	var body ErrorResponse
-	_ = json.NewDecoder(w.Body).Decode(&body)
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
 	if body.Code != "CUSTOM_DENIED" {
 		t.Errorf("Code = %q", body.Code)
 	}
@@ -127,7 +137,9 @@ func TestRenderInvalidID(t *testing.T) {
 		t.Errorf("status = %d, want 400", w.Code)
 	}
 	var body ErrorResponse
-	_ = json.NewDecoder(w.Body).Decode(&body)
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
 	if body.Code != "INVALID_ID" {
 		t.Errorf("Code = %q", body.Code)
 	}

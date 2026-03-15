@@ -69,8 +69,22 @@ func Metrics(reg prometheus.Registerer, pathFromRequest PathFromRequest) func(ht
 		},
 		[]string{"method", "path", "status"},
 	)
-	_ = reg.Register(requestsTotal)
-	_ = reg.Register(requestDuration)
+	if err := reg.Register(requestsTotal); err != nil {
+		var are prometheus.AlreadyRegisteredError
+		if errors.As(err, &are) {
+			if cv, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
+				requestsTotal = cv
+			}
+		}
+	}
+	if err := reg.Register(requestDuration); err != nil {
+		var are prometheus.AlreadyRegisteredError
+		if errors.As(err, &are) {
+			if hv, ok := are.ExistingCollector.(*prometheus.HistogramVec); ok {
+				requestDuration = hv
+			}
+		}
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()

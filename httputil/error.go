@@ -45,11 +45,13 @@ func (h *ErrorHandler) Handle(w http.ResponseWriter, r *http.Request, err error,
 	if err == nil {
 		return false
 	}
-	ev := h.Logger.WithError(err)
-	if httperr.IsExpectedClientError(err) {
-		ev.Info(msg)
-	} else {
-		ev.Error(msg)
+	if h.Logger != nil {
+		ev := h.Logger.WithError(err)
+		if httperr.IsExpectedClientError(err) {
+			ev.Info(msg)
+		} else {
+			ev.Error(msg)
+		}
 	}
 	HandleError(w, r, err)
 	return true

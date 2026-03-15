@@ -26,9 +26,18 @@ func EscapeILIKE(s string, maxLen int) string {
 	if maxLen <= 0 {
 		maxLen = DefaultSearchMaxLen
 	}
-	if utf8.RuneCountInString(s) > maxLen {
-		runes := []rune(s)
-		s = string(runes[:maxLen])
+	var truncated strings.Builder
+	truncated.Grow(maxLen * 4)
+	n := 0
+	for _, r := range s {
+		if n >= maxLen {
+			break
+		}
+		truncated.WriteRune(r)
+		n++
+	}
+	if n >= maxLen {
+		s = truncated.String()
 	}
 	var b strings.Builder
 	for _, r := range s {

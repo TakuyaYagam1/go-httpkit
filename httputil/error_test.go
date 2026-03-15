@@ -38,7 +38,9 @@ func TestHandleError_HTTPError_EmptyCodeUsesCodeFromStatus(t *testing.T) {
 	err := httperr.New(errors.New("bad"), http.StatusBadRequest, "")
 	HandleError(w, r, err)
 	var body ErrorResponse
-	_ = json.NewDecoder(w.Body).Decode(&body)
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
 	if body.Code != "BAD_REQUEST" {
 		t.Errorf("Code = %q, want BAD_REQUEST", body.Code)
 	}
@@ -54,7 +56,9 @@ func TestHandleError_HTTPError_5xxHidesMessage(t *testing.T) {
 		t.Errorf("status = %d", w.Code)
 	}
 	var body ErrorResponse
-	_ = json.NewDecoder(w.Body).Decode(&body)
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
 	if body.Message != "Internal server error" {
 		t.Errorf("Message = %q, want generic message", body.Message)
 	}
@@ -69,7 +73,9 @@ func TestHandleError_GenericError(t *testing.T) {
 		t.Errorf("status = %d, want 500", w.Code)
 	}
 	var body ErrorResponse
-	_ = json.NewDecoder(w.Body).Decode(&body)
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
 	if body.Code != "INTERNAL_ERROR" {
 		t.Errorf("Code = %q", body.Code)
 	}

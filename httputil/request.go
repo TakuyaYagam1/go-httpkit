@@ -104,6 +104,7 @@ func DecodeAndValidateE[T any](r *http.Request, v Validator) (T, error) {
 			Err:        errors.New("invalid JSON in request body"),
 			StatusCode: http.StatusBadRequest,
 			Code:       "INVALID_JSON",
+			IsExpected: true,
 		}
 	}
 	if rejectTrailingJSON(limited, dec) {
@@ -111,6 +112,7 @@ func DecodeAndValidateE[T any](r *http.Request, v Validator) (T, error) {
 			Err:        errors.New("invalid JSON in request body"),
 			StatusCode: http.StatusBadRequest,
 			Code:       "INVALID_JSON",
+			IsExpected: true,
 		}
 	}
 	if err := v.Validate(req); err != nil {
@@ -118,6 +120,7 @@ func DecodeAndValidateE[T any](r *http.Request, v Validator) (T, error) {
 			Err:        errors.New("validation failed"),
 			StatusCode: http.StatusBadRequest,
 			Code:       "VALIDATION_ERROR",
+			IsExpected: true,
 		}
 	}
 	return req, nil

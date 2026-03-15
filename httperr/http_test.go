@@ -19,7 +19,9 @@ func TestCodeFromStatus(t *testing.T) {
 		{http.StatusConflict, "CONFLICT"},
 		{http.StatusGone, "GONE"},
 		{http.StatusPaymentRequired, "PAYMENT_REQUIRED"},
+		{http.StatusUnprocessableEntity, "VALIDATION_ERROR"},
 		{http.StatusTooManyRequests, "RATE_LIMIT_EXCEEDED"},
+		{http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE"},
 		{http.StatusInternalServerError, "INTERNAL_ERROR"},
 		{999, "INTERNAL_ERROR"},
 	}
@@ -80,5 +82,33 @@ func TestIsExpectedClientError(t *testing.T) {
 	err500 := New(errors.New("x"), http.StatusInternalServerError, "INTERNAL")
 	if IsExpectedClientError(err500) {
 		t.Error("5xx should not be expected client error")
+	}
+}
+
+func TestSentinels_StatusCodeAndCode(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		err        *HTTPError
+		wantStatus int
+		wantCode   string
+	}{
+		{"ErrForbidden", ErrForbidden, http.StatusForbidden, "FORBIDDEN"},
+		{"ErrNotFound", ErrNotFound, http.StatusNotFound, "NOT_FOUND"},
+		{"ErrConflict", ErrConflict, http.StatusConflict, "CONFLICT"},
+		{"ErrGone", ErrGone, http.StatusGone, "GONE"},
+		{"ErrUnprocessableEntity", ErrUnprocessableEntity, http.StatusUnprocessableEntity, "VALIDATION_ERROR"},
+		{"ErrTooManyRequests", ErrTooManyRequests, http.StatusTooManyRequests, "RATE_LIMIT_EXCEEDED"},
+		{"ErrServiceUnavailable", ErrServiceUnavailable, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.err.StatusCode != tt.wantStatus {
+				t.Errorf("StatusCode = %d, want %d", tt.err.StatusCode, tt.wantStatus)
+			}
+			if tt.err.GetCode() != tt.wantCode {
+				t.Errorf("GetCode() = %q, want %q", tt.err.GetCode(), tt.wantCode)
+			}
+		})
 	}
 }

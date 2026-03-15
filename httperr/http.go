@@ -22,23 +22,14 @@ func CodeFromStatus(status int) string {
 		return "GONE"
 	case http.StatusPaymentRequired:
 		return "PAYMENT_REQUIRED"
+	case http.StatusUnprocessableEntity:
+		return "VALIDATION_ERROR"
 	case http.StatusTooManyRequests:
 		return "RATE_LIMIT_EXCEEDED"
+	case http.StatusServiceUnavailable:
+		return "SERVICE_UNAVAILABLE"
 	default:
 		return "INTERNAL_ERROR"
-	}
-}
-
-// New returns an HTTPError with the given error, status code, and code. IsExpected is true for 4xx.
-func New(err error, status int, code string) *HTTPError {
-	if err == nil {
-		err = errors.New("")
-	}
-	return &HTTPError{
-		Err:        err,
-		StatusCode: status,
-		Code:       code,
-		IsExpected: status >= http.StatusBadRequest && status < 500,
 	}
 }
 
@@ -55,6 +46,19 @@ func (e *HTTPError) Error() string   { return e.Err.Error() }
 func (e *HTTPError) Unwrap() error   { return e.Err }
 func (e *HTTPError) HTTPStatus() int { return e.StatusCode }
 func (e *HTTPError) GetCode() string { return e.Code }
+
+// New returns an HTTPError with the given error, status code, and code. IsExpected is true for 4xx.
+func New(err error, status int, code string) *HTTPError {
+	if err == nil {
+		err = errors.New("")
+	}
+	return &HTTPError{
+		Err:        err,
+		StatusCode: status,
+		Code:       code,
+		IsExpected: status >= http.StatusBadRequest && status < 500,
+	}
+}
 
 func IsExpectedClientError(err error) bool {
 	var he *HTTPError
