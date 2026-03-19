@@ -1,5 +1,9 @@
 # go-httpkit
 
+[![CI](https://github.com/TakuyaYagam1/go-httpkit/actions/workflows/ci.yml/badge.svg)](https://github.com/TakuyaYagam1/go-httpkit/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/TakuyaYagam1/go-httpkit.svg)](https://pkg.go.dev/github.com/TakuyaYagam1/go-httpkit)
+[![Go Report Card](https://goreportcard.com/badge/github.com/TakuyaYagam1/go-httpkit)](https://goreportcard.com/report/github.com/TakuyaYagam1/go-httpkit)
+
 HTTP helpers for JSON APIs: errors, responses, decoding, validation, pagination, query parsing, SSE, health, and middleware.
 
 ## Install
