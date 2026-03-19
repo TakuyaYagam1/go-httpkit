@@ -15,7 +15,7 @@ func validRequestID(s string) bool {
 		if r > unicode.MaxASCII || unicode.IsControl(r) || r == '\r' || r == '\n' {
 			return false
 		}
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_') {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.') {
 			return false
 		}
 	}

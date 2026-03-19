@@ -77,6 +77,27 @@ func TestParseSortQuery(t *testing.T) {
 	r = requireReq(t, "GET", "http://a/")
 	_, _, ok = ParseSortQuery(r, allowed)
 	assert.False(t, ok)
+	r = requireReq(t, "GET", "http://a/?sort=name:asc")
+	f, d, ok = ParseSortQuery(r, allowed)
+	assert.True(t, ok)
+	assert.Equal(t, "name", f)
+	assert.Equal(t, "asc", d)
+	r = requireReq(t, "GET", "http://a/?sort=-name")
+	f, d, ok = ParseSortQuery(r, allowed)
+	assert.True(t, ok)
+	assert.Equal(t, "name", f)
+	assert.Equal(t, "desc", d)
+}
+
+func TestParseSortQuery_MixedNotationRejected(t *testing.T) {
+	t.Parallel()
+	allowed := []string{"name"}
+	r := requireReq(t, "GET", "http://a/?sort=-name:asc")
+	_, _, ok := ParseSortQuery(r, allowed)
+	assert.False(t, ok, "mixed -prefix and :dir should be rejected")
+	r = requireReq(t, "GET", "http://a/?sort=-name:desc")
+	_, _, ok = ParseSortQuery(r, allowed)
+	assert.False(t, ok, "mixed -prefix and :dir should be rejected")
 }
 
 func TestParseTimeQuery(t *testing.T) {

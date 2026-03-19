@@ -9,7 +9,6 @@ import (
 
 	"github.com/TakuyaYagam1/go-httpkit/httputil"
 	logger "github.com/TakuyaYagam1/go-logkit"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 const (
@@ -59,7 +58,7 @@ func redactQuery(raw string) string {
 	return vals.Encode()
 }
 
-// Logger returns middleware that logs each request (method, path, redacted query, IP, user-agent, request_id) and after the handler adds status, latency_ms, bytes, logging at Info (2xx), Warn (4xx), or Error (5xx). Sensitive query params are redacted. If log is nil, passes through without logging. Invalid trustedProxyCIDRs are logged at Warn once at build time.
+// Logger returns middleware that logs each request (method, path, redacted query, IP, user-agent, request_id) and after the handler adds status, latency_ms, and bytes. Sensitive query params are redacted. If log is nil, the middleware is a no-op.
 func Logger(log logger.Logger, trustedProxyCIDRs []string) func(next http.Handler) http.Handler {
 	trustedNets, parseErr := httputil.ParseTrustedProxyCIDRs(trustedProxyCIDRs)
 	if log != nil && parseErr != nil && len(trustedProxyCIDRs) > 0 {
@@ -87,7 +86,7 @@ func Logger(log logger.Logger, trustedProxyCIDRs []string) func(next http.Handle
 			reqLogger := log.WithFields(fields)
 			ctx := logger.IntoContext(r.Context(), reqLogger)
 
-			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			ww := &statusWriter{ResponseWriter: w}
 			next.ServeHTTP(ww, r.WithContext(ctx))
 
 			latency := time.Since(start)

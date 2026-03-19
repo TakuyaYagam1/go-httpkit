@@ -1,6 +1,7 @@
 package httputil
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -54,5 +55,29 @@ func TestSanitizeSearchQ(t *testing.T) {
 	want := `a\%b`
 	if got != want {
 		t.Errorf("SanitizeSearchQ(%q, 100) = %q, want %q", "a%b", got, want)
+	}
+}
+
+func BenchmarkEscapeILIKE_Short(b *testing.B) {
+	s := "hello world"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = EscapeILIKE(s, 100)
+	}
+}
+
+func BenchmarkEscapeILIKE_WithSpecialChars(b *testing.B) {
+	s := `%foo\_bar\baz%`
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = EscapeILIKE(s, 100)
+	}
+}
+
+func BenchmarkEscapeILIKE_Long(b *testing.B) {
+	s := strings.Repeat("x", 200)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = EscapeILIKE(s, 100)
 	}
 }

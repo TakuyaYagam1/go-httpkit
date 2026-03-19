@@ -37,5 +37,5 @@ func TestTimeout_ExceedsLimit(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	chain.ServeHTTP(w, r)
 	require.Equal(t, http.StatusServiceUnavailable, w.Code)
-	assert.Contains(t, w.Body.String(), "timeout")
+	assert.Contains(t, w.Body.String(), "TIMEOUT")
 }

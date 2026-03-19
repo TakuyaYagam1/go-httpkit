@@ -23,7 +23,7 @@ HTTP-aware errors: HTTPError (Err, StatusCode, Code, IsExpected), New, CodeFromS
 ### httputil
 
 - **Responses**: RenderJSON, RenderOK, RenderCreated, RenderAccepted, RenderNoContent, RenderError, RenderErrorWithCode, RenderInvalidID, RenderText
-- **Errors**: HandleError, ErrorHandler, ErrorLogger; ErrorResponse, ValidationErrorResponse
+- **Errors**: HandleError, ErrorHandler; ErrorResponse, ValidationErrorResponse
 - **Request**: DecodeAndValidate[T], DecodeAndValidateE[T], DecodeJSON[T]
 - **Params**: ParseUUID, ParseUUIDField, ParseAuthUserID, GetUserID(ctx)
 - **Pagination**: ClampPage, ClampPerPage, ClampLimit, ParseIntQuery, TotalPages, NewPaginationMeta, Ptr[T]

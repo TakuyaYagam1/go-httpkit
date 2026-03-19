@@ -72,10 +72,10 @@ func TotalPages(total int64, perPage int) int {
 
 // PaginationMeta holds pagination metadata for a response.
 type PaginationMeta struct {
-	Page       int // Current page (1-based).
-	PerPage    int // Items per page.
-	Total      int // Total item count (capped to math.MaxInt).
-	TotalPages int // Total number of pages.
+	Page       int `json:"page"`
+	PerPage    int `json:"per_page"`
+	Total      int `json:"total"`
+	TotalPages int `json:"total_pages"`
 }
 
 // clampTotal clamps a total to the maximum integer value.

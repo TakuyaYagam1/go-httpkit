@@ -13,7 +13,7 @@ import (
 	logger "github.com/TakuyaYagam1/go-logkit"
 )
 
-// ErrResponseBodyTooLarge is returned by timeoutWriter.Write when the buffered response body would exceed the configured maxResponseBytes.
+// ErrResponseBodyTooLarge is returned by TimeoutWithLimit when the handler writes more than maxResponseBytes.
 var ErrResponseBodyTooLarge = errors.New("response body size limit exceeded")
 
 const timeoutGracePeriod = 5 * time.Second
@@ -21,7 +21,6 @@ const timeoutGracePeriod = 5 * time.Second
 type timeoutWriter struct {
 	http.ResponseWriter
 	mu             sync.Mutex
-	headerMu       sync.Mutex
 	headerCopied   bool
 	timedOut       bool
 	wrote          bool
@@ -32,8 +31,6 @@ type timeoutWriter struct {
 }
 
 func (tw *timeoutWriter) copyHeaderOnce() {
-	tw.headerMu.Lock()
-	defer tw.headerMu.Unlock()
 	if tw.headerCopied {
 		return
 	}
@@ -96,7 +93,7 @@ func (tw *timeoutWriter) writeTimeoutResponse() {
 	tw.timedOut = true
 	tw.ResponseWriter.Header().Set("Content-Type", "application/json")
 	tw.ResponseWriter.WriteHeader(http.StatusServiceUnavailable)
-	_, _ = tw.ResponseWriter.Write([]byte(`{"error":"request timeout"}`))
+	_, _ = tw.ResponseWriter.Write([]byte(`{"code":"TIMEOUT","message":"request timeout"}`))
 }
 
 func (tw *timeoutWriter) writePanicResponse() {
@@ -108,15 +105,15 @@ func (tw *timeoutWriter) writePanicResponse() {
 	tw.wrote = true
 	tw.ResponseWriter.Header().Set("Content-Type", "application/json")
 	tw.ResponseWriter.WriteHeader(http.StatusInternalServerError)
-	_, _ = tw.ResponseWriter.Write([]byte(`{"error":"Internal server error"}`))
+	_, _ = tw.ResponseWriter.Write([]byte(`{"code":"INTERNAL_ERROR","message":"Internal server error"}`))
 }
 
-// Timeout returns middleware that runs the handler with a context deadline of d. If the deadline is exceeded, responds with 503 JSON. The response body is buffered in memory—do not use for streaming or large responses. The handler may keep running after the response; it should respect context cancellation. After sending the timeout response, the middleware waits up to timeoutGracePeriod for the handler to finish; if the handler does not complete in that time, its goroutine may still be running—handlers should check ctx.Done() to exit promptly, and operators should monitor for goroutine leaks. Optional log is used to log recovered panics (panic value and stack) from the handler goroutine.
+// Timeout returns middleware that runs the handler with a context deadline; on timeout responds with 503 JSON. The response is buffered in memory.
 func Timeout(d time.Duration, log ...logger.Logger) func(http.Handler) http.Handler {
 	return TimeoutWithLimit(d, 0, log...)
 }
 
-// TimeoutWithLimit is like Timeout but rejects response body writes when total buffered size would exceed maxResponseBytes (0 = unlimited). Optional log is used to log recovered panics.
+// TimeoutWithLimit is like Timeout but caps response body size; when exceeded returns ErrResponseBodyTooLarge and truncates the response.
 func TimeoutWithLimit(d time.Duration, maxResponseBytes int64, log ...logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -151,12 +148,19 @@ func TimeoutWithLimit(d time.Duration, maxResponseBytes int64, log ...logger.Log
 				return
 			case <-ctx.Done():
 				tw.writeTimeoutResponse()
-				// Handler may still be running; we wait up to timeoutGracePeriod then return. The handler goroutine is not killed—handlers must respect ctx.Done() to avoid leaks.
 				timer := time.NewTimer(timeoutGracePeriod)
 				defer timer.Stop()
 				select {
 				case <-done:
 				case <-timer.C:
+					if panicLog != nil {
+						panicLog.Warn("timeout middleware: handler goroutine did not finish within grace period", logger.Fields{
+							"path":         r.URL.Path,
+							"method":       r.Method,
+							"timeout":      d.String(),
+							"grace_period": timeoutGracePeriod.String(),
+						})
+					}
 				}
 			}
 		})

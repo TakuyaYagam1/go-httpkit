@@ -17,8 +17,11 @@ type Paginated[T any] struct {
 	TotalPages int   `json:"total_pages"`
 }
 
-// NewPaginated builds a Paginated with TotalPages computed from total and perPage.
+// NewPaginated builds a Paginated with TotalPages computed from total and perPage. Data is never nil in the result (empty slice if nil).
 func NewPaginated[T any](data []T, total int64, page, perPage int) *Paginated[T] {
+	if data == nil {
+		data = make([]T, 0)
+	}
 	return &Paginated[T]{
 		Data:       data,
 		Total:      total,

@@ -52,9 +52,11 @@ func ParseSortQuery(r *http.Request, allowedFields []string) (field, dir string,
 	dir = "asc"
 	if strings.HasPrefix(q, "-") {
 		field = strings.TrimPrefix(q, "-")
+		if strings.Contains(field, ":") {
+			return "", "", false
+		}
 		dir = "desc"
-	}
-	if idx := strings.Index(field, ":"); idx >= 0 {
+	} else if idx := strings.Index(field, ":"); idx >= 0 {
 		field, dir = field[:idx], field[idx+1:]
 		field = strings.TrimSpace(field)
 		dir = strings.TrimSpace(strings.ToLower(dir))

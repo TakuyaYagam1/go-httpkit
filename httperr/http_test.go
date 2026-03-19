@@ -39,14 +39,25 @@ func TestNew(t *testing.T) {
 	if err == nil {
 		t.Fatal("New(nil, ...) should not return nil")
 	}
-	if err.StatusCode != http.StatusBadRequest {
-		t.Errorf("StatusCode = %d, want %d", err.StatusCode, http.StatusBadRequest)
+	if err.HTTPStatus() != http.StatusBadRequest {
+		t.Errorf("HTTPStatus() = %d, want %d", err.HTTPStatus(), http.StatusBadRequest)
 	}
 	if err.GetCode() != "CUSTOM" {
 		t.Errorf("GetCode() = %q, want CUSTOM", err.GetCode())
 	}
 	if err.Unwrap() == nil {
 		t.Error("Unwrap() should not be nil")
+	}
+	if !err.IsClientError() {
+		t.Error("4xx should be client error")
+	}
+}
+
+func TestNew_5xx_NotClientError(t *testing.T) {
+	t.Parallel()
+	err := New(errors.New("x"), http.StatusInternalServerError, "INTERNAL")
+	if err.IsClientError() {
+		t.Error("5xx should not be client error")
 	}
 }
 
@@ -56,8 +67,8 @@ func TestNewValidationErrorf(t *testing.T) {
 	if err == nil {
 		t.Fatal("NewValidationErrorf should not return nil")
 	}
-	if err.StatusCode != http.StatusBadRequest {
-		t.Errorf("StatusCode = %d, want %d", err.StatusCode, http.StatusBadRequest)
+	if err.HTTPStatus() != http.StatusBadRequest {
+		t.Errorf("HTTPStatus() = %d, want %d", err.HTTPStatus(), http.StatusBadRequest)
 	}
 	if err.GetCode() != "VALIDATION_ERROR" {
 		t.Errorf("GetCode() = %q, want VALIDATION_ERROR", err.GetCode())
@@ -103,12 +114,32 @@ func TestSentinels_StatusCodeAndCode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.err.StatusCode != tt.wantStatus {
-				t.Errorf("StatusCode = %d, want %d", tt.err.StatusCode, tt.wantStatus)
+			if tt.err.HTTPStatus() != tt.wantStatus {
+				t.Errorf("HTTPStatus() = %d, want %d", tt.err.HTTPStatus(), tt.wantStatus)
 			}
 			if tt.err.GetCode() != tt.wantCode {
 				t.Errorf("GetCode() = %q, want %q", tt.err.GetCode(), tt.wantCode)
 			}
 		})
+	}
+}
+
+func TestHTTPError_NilReceiver(t *testing.T) {
+	t.Parallel()
+	var e *HTTPError
+	if e.Error() != "" {
+		t.Error("nil Error() should be empty")
+	}
+	if e.Unwrap() != nil {
+		t.Error("nil Unwrap() should be nil")
+	}
+	if e.HTTPStatus() != 0 {
+		t.Error("nil HTTPStatus() should be 0")
+	}
+	if e.GetCode() != "" {
+		t.Error("nil GetCode() should be empty")
+	}
+	if e.IsClientError() {
+		t.Error("nil IsClientError() should be false")
 	}
 }

@@ -95,8 +95,9 @@ func (s *SSEWriter) Send(event, data string) error {
 	}
 	data = strings.ReplaceAll(data, "\r\n", "\n")
 	data = strings.ReplaceAll(data, "\r", "\n")
+	lines := strings.Split(data, "\n")
 	var dataPart int64
-	for _, line := range strings.Split(data, "\n") {
+	for _, line := range lines {
 		dataPart += int64(len("data: ") + len(line) + 1)
 	}
 	total := int64(len(eventPart)) + dataPart + 1
@@ -109,7 +110,7 @@ func (s *SSEWriter) Send(event, data string) error {
 			return err
 		}
 	}
-	for _, line := range strings.Split(data, "\n") {
+	for _, line := range lines {
 		_, err := s.w.Write([]byte("data: " + line + "\n"))
 		if err != nil {
 			return err

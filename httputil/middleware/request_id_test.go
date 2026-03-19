@@ -44,3 +44,19 @@ func TestGetRequestID_Empty(t *testing.T) {
 	t.Parallel()
 	assert.Empty(t, GetRequestID(context.Background()))
 }
+
+func TestRequestID_WithDotAccepted(t *testing.T) {
+	t.Parallel()
+	const want = "abc.def.123"
+	chain := RequestID()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := GetRequestID(r.Context())
+		assert.Equal(t, want, id)
+		assert.Equal(t, want, w.Header().Get("X-Request-ID"))
+		w.WriteHeader(http.StatusOK)
+	}))
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.Header.Set("X-Request-ID", want)
+	chain.ServeHTTP(w, r)
+	assert.Equal(t, want, w.Header().Get("X-Request-ID"))
+}

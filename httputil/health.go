@@ -6,39 +6,34 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	"golang.org/x/sync/errgroup"
 )
 
 const healthCheckTimeout = 5 * time.Second
 
-// Checker performs a single health check. Check returns nil for success, non-nil for failure.
+// Checker performs a single health check. Implementations should respect ctx cancellation.
 type Checker interface {
 	Check(ctx context.Context) error
 }
 
-// HealthHandlerOption configures HealthHandler (e.g. to hide check details from the response).
+// HealthHandlerOption configures HealthHandler behaviour.
 type HealthHandlerOption func(*healthOpts)
 
-// healthOpts configures HealthHandler.
 type healthOpts struct {
 	hideDetails   bool
 	onEncodeError func(error)
 }
 
-// HealthOnEncodeError sets a callback invoked when JSON encoding of the response body fails (e.g. for logging).
+// HealthOnEncodeError sets a callback invoked when JSON encoding of the health response fails (e.g. for logging).
 func HealthOnEncodeError(f func(error)) HealthHandlerOption {
 	return func(o *healthOpts) { o.onEncodeError = f }
 }
 
-// HealthHideDetails omits the "checks" map from the JSON response so only "status" is returned (e.g. for public /health to avoid exposing internal component names).
+// HealthHideDetails omits per-check results from the JSON response; only status (ok/degraded) is returned.
 func HealthHideDetails() HealthHandlerOption {
 	return func(o *healthOpts) { o.hideDetails = true }
 }
 
-// HealthHandler returns a handler that runs all checkers in parallel with a 5s timeout.
-// Response JSON: {"status":"ok"|"degraded"}[,"checks":{name:"ok"|"error"}]. Status 200 when all pass, 503 when any fail.
-// Nil checkers are treated as ok. Use HealthHideDetails() to return only status and avoid exposing checker names.
+// HealthHandler returns an HTTP handler that runs all checkers in parallel with a timeout and returns JSON with status and optional check results.
 func HealthHandler(checkers map[string]Checker, opts ...HealthHandlerOption) http.HandlerFunc {
 	var o healthOpts
 	for _, opt := range opts {
@@ -49,9 +44,9 @@ func HealthHandler(checkers map[string]Checker, opts ...HealthHandlerOption) htt
 		defer cancel()
 		results := make(map[string]string, len(checkers))
 		var mu sync.Mutex
-		g, gCtx := errgroup.WithContext(ctx)
+		var wg sync.WaitGroup
 		for name, c := range checkers {
-			g.Go(func() error {
+			wg.Go(func() {
 				defer func() {
 					if p := recover(); p != nil {
 						mu.Lock()
@@ -63,9 +58,9 @@ func HealthHandler(checkers map[string]Checker, opts ...HealthHandlerOption) htt
 					mu.Lock()
 					results[name] = "ok"
 					mu.Unlock()
-					return nil
+					return
 				}
-				err := c.Check(gCtx)
+				err := c.Check(ctx)
 				mu.Lock()
 				if err != nil {
 					results[name] = "error"
@@ -73,10 +68,9 @@ func HealthHandler(checkers map[string]Checker, opts ...HealthHandlerOption) htt
 					results[name] = "ok"
 				}
 				mu.Unlock()
-				return nil
 			})
 		}
-		_ = g.Wait()
+		wg.Wait()
 		allOk := true
 		for _, v := range results {
 			if v == "error" {

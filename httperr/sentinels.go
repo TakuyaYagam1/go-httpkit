@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-// Sentinel error values used as HTTPError.Err by the Err* functions below.
+// Sentinel error values used as HTTPError.Unwrap() targets by the Err* functions below.
 var (
 	ErrInvalidIDSentinel           = errors.New("invalid ID")
 	ErrNotAuthenticatedSentinel    = errors.New("not authenticated")
@@ -20,45 +20,45 @@ var (
 
 // ErrInvalidID returns an HTTPError with status 400 and code INVALID_ID.
 func ErrInvalidID() *HTTPError {
-	return &HTTPError{Err: ErrInvalidIDSentinel, StatusCode: http.StatusBadRequest, Code: "INVALID_ID", IsExpected: true}
+	return New(ErrInvalidIDSentinel, http.StatusBadRequest, "INVALID_ID")
 }
 
 // ErrNotAuthenticated returns an HTTPError with status 401 and code NOT_AUTHENTICATED.
 func ErrNotAuthenticated() *HTTPError {
-	return &HTTPError{Err: ErrNotAuthenticatedSentinel, StatusCode: http.StatusUnauthorized, Code: "NOT_AUTHENTICATED", IsExpected: true}
+	return New(ErrNotAuthenticatedSentinel, http.StatusUnauthorized, "NOT_AUTHENTICATED")
 }
 
 // ErrForbidden returns an HTTPError with status 403 and code FORBIDDEN.
 func ErrForbidden() *HTTPError {
-	return &HTTPError{Err: ErrForbiddenSentinel, StatusCode: http.StatusForbidden, Code: "FORBIDDEN", IsExpected: true}
+	return New(ErrForbiddenSentinel, http.StatusForbidden, "FORBIDDEN")
 }
 
 // ErrNotFound returns an HTTPError with status 404 and code NOT_FOUND.
 func ErrNotFound() *HTTPError {
-	return &HTTPError{Err: ErrNotFoundSentinel, StatusCode: http.StatusNotFound, Code: "NOT_FOUND", IsExpected: true}
+	return New(ErrNotFoundSentinel, http.StatusNotFound, "NOT_FOUND")
 }
 
 // ErrConflict returns an HTTPError with status 409 and code CONFLICT.
 func ErrConflict() *HTTPError {
-	return &HTTPError{Err: ErrConflictSentinel, StatusCode: http.StatusConflict, Code: "CONFLICT", IsExpected: true}
+	return New(ErrConflictSentinel, http.StatusConflict, "CONFLICT")
 }
 
 // ErrGone returns an HTTPError with status 410 and code GONE.
 func ErrGone() *HTTPError {
-	return &HTTPError{Err: ErrGoneSentinel, StatusCode: http.StatusGone, Code: "GONE", IsExpected: true}
+	return New(ErrGoneSentinel, http.StatusGone, "GONE")
 }
 
 // ErrUnprocessableEntity returns an HTTPError with status 422 and code VALIDATION_ERROR.
 func ErrUnprocessableEntity() *HTTPError {
-	return &HTTPError{Err: ErrUnprocessableEntitySentinel, StatusCode: http.StatusUnprocessableEntity, Code: "VALIDATION_ERROR", IsExpected: true}
+	return New(ErrUnprocessableEntitySentinel, http.StatusUnprocessableEntity, "VALIDATION_ERROR")
 }
 
 // ErrTooManyRequests returns an HTTPError with status 429 and code RATE_LIMIT_EXCEEDED.
 func ErrTooManyRequests() *HTTPError {
-	return &HTTPError{Err: ErrTooManyRequestsSentinel, StatusCode: http.StatusTooManyRequests, Code: "RATE_LIMIT_EXCEEDED", IsExpected: true}
+	return New(ErrTooManyRequestsSentinel, http.StatusTooManyRequests, "RATE_LIMIT_EXCEEDED")
 }
 
 // ErrServiceUnavailable returns an HTTPError with status 503 and code SERVICE_UNAVAILABLE.
 func ErrServiceUnavailable() *HTTPError {
-	return &HTTPError{Err: ErrServiceUnavailableSentinel, StatusCode: http.StatusServiceUnavailable, Code: "SERVICE_UNAVAILABLE", IsExpected: false}
+	return New(ErrServiceUnavailableSentinel, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE")
 }
