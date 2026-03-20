@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	logger "github.com/TakuyaYagam1/go-logkit"
-	logmock "github.com/TakuyaYagam1/go-logkit/mock"
+	logger "github.com/takuya-go-kit/go-logkit"
+	logmock "github.com/takuya-go-kit/go-logkit/mock"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

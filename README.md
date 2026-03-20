@@ -1,21 +1,21 @@
 # go-httpkit
 
-[![CI](https://github.com/TakuyaYagam1/go-httpkit/actions/workflows/ci.yml/badge.svg)](https://github.com/TakuyaYagam1/go-httpkit/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/TakuyaYagam1/go-httpkit.svg)](https://pkg.go.dev/github.com/TakuyaYagam1/go-httpkit)
-[![Go Report Card](https://goreportcard.com/badge/github.com/TakuyaYagam1/go-httpkit)](https://goreportcard.com/report/github.com/TakuyaYagam1/go-httpkit)
+[![CI](https://github.com/takuya-go-kit/go-httpkit/actions/workflows/ci.yml/badge.svg)](https://github.com/takuya-go-kit/go-httpkit/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/takuya-go-kit/go-httpkit.svg)](https://pkg.go.dev/github.com/takuya-go-kit/go-httpkit)
+[![Go Report Card](https://goreportcard.com/badge/github.com/takuya-go-kit/go-httpkit)](https://goreportcard.com/report/github.com/takuya-go-kit/go-httpkit)
 
 HTTP helpers for JSON APIs: errors, responses, decoding, validation, pagination, query parsing, SSE, health, and middleware.
 
 ## Install
 
 ```bash
-go get github.com/TakuyaYagam1/go-httpkit
+go get github.com/takuya-go-kit/go-httpkit
 ```
 
 ```go
-import "github.com/TakuyaYagam1/go-httpkit/httperr"
-import "github.com/TakuyaYagam1/go-httpkit/httputil"
-import "github.com/TakuyaYagam1/go-httpkit/httputil/middleware"
+import "github.com/takuya-go-kit/go-httpkit/httperr"
+import "github.com/takuya-go-kit/go-httpkit/httputil"
+import "github.com/takuya-go-kit/go-httpkit/httputil/middleware"
 ```
 
 ## Subpackages

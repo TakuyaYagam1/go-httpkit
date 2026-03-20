@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-chi/render"
 
-	"github.com/TakuyaYagam1/go-httpkit/httperr"
-	logger "github.com/TakuyaYagam1/go-logkit"
+	"github.com/takuya-go-kit/go-httpkit/httperr"
+	logger "github.com/takuya-go-kit/go-logkit"
 )
 
 // ErrorHandler handles errors by optionally logging and writing a JSON error response via HandleError.

@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	logger "github.com/TakuyaYagam1/go-logkit"
+	logger "github.com/takuya-go-kit/go-logkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

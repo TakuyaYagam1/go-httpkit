@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	logger "github.com/TakuyaYagam1/go-logkit"
+	logger "github.com/takuya-go-kit/go-logkit"
 )
 
 // ErrResponseBodyTooLarge is returned by TimeoutWithLimit when the handler writes more than maxResponseBytes.

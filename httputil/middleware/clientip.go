@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/TakuyaYagam1/go-httpkit/httputil"
+	"github.com/takuya-go-kit/go-httpkit/httputil"
 )
 
 type clientIPContextKey struct{}

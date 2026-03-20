@@ -1,15 +1,15 @@
-module github.com/TakuyaYagam1/go-httpkit
+module github.com/takuya-go-kit/go-httpkit
 
 go 1.25.0
 
 require (
-	github.com/TakuyaYagam1/go-logkit v0.2.0
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-chi/render v1.0.3
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/google/uuid v1.6.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/stretchr/testify v1.11.1
+	github.com/takuya-go-kit/go-logkit v0.2.0
 	golang.org/x/sync v0.20.0
 )
 
@@ -40,3 +40,5 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/takuya-go-kit/go-logkit => ../go-logkit

@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/TakuyaYagam1/go-httpkit/httperr"
-	logmock "github.com/TakuyaYagam1/go-logkit/mock"
+	"github.com/takuya-go-kit/go-httpkit/httperr"
+	logmock "github.com/takuya-go-kit/go-logkit/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
