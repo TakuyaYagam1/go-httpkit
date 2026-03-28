@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/render"
-
 	"github.com/wahrwelt-kit/go-httpkit/httperr"
 )
 
@@ -40,21 +39,21 @@ func RenderOK[T any](w http.ResponseWriter, r *http.Request, data T) {
 }
 
 // RenderError sends JSON error with status and message; code is derived from status
-// For 5xx status, message is replaced with "Internal server error" to avoid leaking details
+// For 5xx status, message is replaced with msgInternalServerError to avoid leaking details
 func RenderError(w http.ResponseWriter, r *http.Request, status int, message string) {
 	render.Status(r, status)
 	if status >= http.StatusInternalServerError {
-		message = "Internal server error"
+		message = msgInternalServerError
 	}
 	render.JSON(w, r, ErrorResponse{Code: httperr.CodeFromStatus(status), Message: message})
 }
 
 // RenderErrorWithCode sends JSON error with explicit code
-// For 5xx status, message is replaced with "Internal server error" to avoid leaking details
+// For 5xx status, message is replaced with msgInternalServerError to avoid leaking details
 func RenderErrorWithCode(w http.ResponseWriter, r *http.Request, status int, message, code string) {
 	render.Status(r, status)
 	if status >= http.StatusInternalServerError {
-		message = "Internal server error"
+		message = msgInternalServerError
 	}
 	render.JSON(w, r, ErrorResponse{Code: code, Message: message})
 }

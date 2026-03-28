@@ -11,6 +11,7 @@ import (
 
 type statusWriter struct {
 	http.ResponseWriter
+
 	mu           sync.Mutex
 	status       int
 	bytesWritten int

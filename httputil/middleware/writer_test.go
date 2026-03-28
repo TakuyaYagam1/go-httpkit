@@ -101,6 +101,7 @@ func TestStatusWriter_Flush_NotSupported(t *testing.T) {
 
 type fakeHijacker struct {
 	http.ResponseWriter
+
 	conn net.Conn
 }
 
@@ -252,11 +253,9 @@ func TestStatusWriter_Concurrent_WriteHeader(t *testing.T) {
 	sw, _ := newStatusWriter()
 	var wg sync.WaitGroup
 	for i := range 50 {
-		wg.Add(1)
-		go func(code int) {
-			defer wg.Done()
-			sw.WriteHeader(code)
-		}(200 + i)
+		wg.Go(func() {
+			sw.WriteHeader(200 + i)
+		})
 	}
 	wg.Wait()
 	status := sw.Status()
@@ -282,20 +281,9 @@ func TestStatusWriter_Concurrent_MixedOps(t *testing.T) {
 	t.Parallel()
 	sw, _ := newStatusWriter()
 	var wg sync.WaitGroup
-	wg.Add(3)
-	go func() {
-		defer wg.Done()
-		sw.WriteHeader(http.StatusCreated)
-	}()
-	go func() {
-		defer wg.Done()
-		_, _ = sw.Write([]byte("data"))
-	}()
-	go func() {
-		defer wg.Done()
-		_ = sw.Status()
-		_ = sw.BytesWritten()
-	}()
+	wg.Go(func() { sw.WriteHeader(http.StatusCreated) })
+	wg.Go(func() { _, _ = sw.Write([]byte("data")) })
+	wg.Go(func() { _ = sw.Status(); _ = sw.BytesWritten() })
 	wg.Wait()
 	assert.GreaterOrEqual(t, sw.BytesWritten(), 0)
 }

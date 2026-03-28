@@ -1,6 +1,7 @@
 package httputil
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -28,7 +29,7 @@ func ParseTrustedProxyCIDRs(cidrs []string) ([]*net.IPNet, error) {
 		nets = append(nets, network)
 	}
 	if len(nets) == 0 {
-		return nil, fmt.Errorf("httputil: no valid trusted proxy CIDRs")
+		return nil, errors.New("httputil: no valid trusted proxy CIDRs")
 	}
 	if len(invalid) > 0 {
 		return nets, fmt.Errorf("httputil: invalid trusted proxy CIDRs skipped: %v", invalid)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/render"
 	playvalidator "github.com/go-playground/validator/v10"
-
 	"github.com/wahrwelt-kit/go-httpkit/httperr"
 )
 
@@ -97,8 +96,6 @@ func sanitizeValidationMessage(e playvalidator.FieldError) string {
 		return "Required"
 	case "email", "custom_email":
 		return "Invalid format"
-	case "min", "max", "len", "gte", "lte", "gt", "lt":
-		return "Invalid value"
 	default:
 		return "Invalid value"
 	}
@@ -124,7 +121,7 @@ func DecodeAndValidate[T any](w http.ResponseWriter, r *http.Request, v Validato
 		if w != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(ErrorResponse{Code: "BAD_REQUEST", Message: "request or response writer is nil"}) //nolint:errchkjson
+			_ = json.NewEncoder(w).Encode(ErrorResponse{Code: "BAD_REQUEST", Message: "request or response writer is nil"}) //nolint:errchkjson // best-effort error response when request is nil
 		}
 		return req, false
 	}
@@ -161,7 +158,7 @@ func DecodeAndValidate[T any](w http.ResponseWriter, r *http.Request, v Validato
 	}
 	if v == nil {
 		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, ErrorResponse{Code: "INTERNAL_ERROR", Message: "Internal server error"})
+		render.JSON(w, r, ErrorResponse{Code: "INTERNAL_ERROR", Message: msgInternalServerError})
 		return req, false
 	}
 	if err := v.Validate(req); err != nil {

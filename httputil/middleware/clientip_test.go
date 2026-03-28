@@ -22,7 +22,7 @@ func TestClientIP_SetsContext(t *testing.T) {
 		capturedIP = GetClientIPFromContext(req.Context())
 		w.WriteHeader(http.StatusOK)
 	})
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.RemoteAddr = "192.168.1.5:12345"
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)

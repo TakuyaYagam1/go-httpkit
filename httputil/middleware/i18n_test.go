@@ -39,7 +39,7 @@ func TestI18n_AcceptLanguageHeader(t *testing.T) {
 	handler := I18n(bundle)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		got = Localize(r.Context(), &i18n.LocalizeConfig{MessageID: "greeting"})
 	}))
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.Header.Set("Accept-Language", "fr")
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 	assert.Equal(t, "Bonjour", got)
@@ -52,7 +52,7 @@ func TestI18n_AcceptLanguageWithQValues(t *testing.T) {
 	handler := I18n(bundle)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		got = Localize(r.Context(), &i18n.LocalizeConfig{MessageID: "greeting"})
 	}))
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9,fr;q=0.8") // en wins
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 	assert.Equal(t, "Hello", got)
@@ -65,7 +65,7 @@ func TestI18n_FallsBackToDefaultBundleLanguage(t *testing.T) {
 	handler := I18n(bundle)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		got = Localize(r.Context(), &i18n.LocalizeConfig{MessageID: "greeting"})
 	}))
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.Header.Set("Accept-Language", "de") // not in bundle -> falls back to English
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 	assert.Equal(t, "Hello", got)
@@ -78,7 +78,7 @@ func TestI18n_QueryParamOverridesHeader(t *testing.T) {
 	handler := I18n(bundle, WithLanguageQueryParam("lang"))(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		got = Localize(r.Context(), &i18n.LocalizeConfig{MessageID: "greeting"})
 	}))
-	req := httptest.NewRequest(http.MethodGet, "/?lang=fr", nil)
+	req := httptest.NewRequest(http.MethodGet, "/?lang=fr", http.NoBody)
 	req.Header.Set("Accept-Language", "en")
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 	assert.Equal(t, "Bonjour", got)
@@ -91,7 +91,7 @@ func TestI18n_CookieOverridesQueryAndHeader(t *testing.T) {
 	handler := I18n(bundle, WithLanguageCookie("lang"), WithLanguageQueryParam("lang"))(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		got = Localize(r.Context(), &i18n.LocalizeConfig{MessageID: "greeting"})
 	}))
-	req := httptest.NewRequest(http.MethodGet, "/?lang=en", nil)
+	req := httptest.NewRequest(http.MethodGet, "/?lang=en", http.NoBody)
 	req.Header.Set("Accept-Language", "en")
 	req.AddCookie(&http.Cookie{Name: "lang", Value: "fr"})
 	handler.ServeHTTP(httptest.NewRecorder(), req)
@@ -105,7 +105,7 @@ func TestI18n_QueryParamIgnoredWhenNotConfigured(t *testing.T) {
 	handler := I18n(bundle)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		got = Localize(r.Context(), &i18n.LocalizeConfig{MessageID: "greeting"})
 	}))
-	req := httptest.NewRequest(http.MethodGet, "/?lang=fr", nil)
+	req := httptest.NewRequest(http.MethodGet, "/?lang=fr", http.NoBody)
 	req.Header.Set("Accept-Language", "en")
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 	assert.Equal(t, "Hello", got) // query param ignored, uses Accept-Language
@@ -118,7 +118,7 @@ func TestI18n_CookieIgnoredWhenNotConfigured(t *testing.T) {
 	handler := I18n(bundle)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		got = Localize(r.Context(), &i18n.LocalizeConfig{MessageID: "greeting"})
 	}))
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.Header.Set("Accept-Language", "en")
 	req.AddCookie(&http.Cookie{Name: "lang", Value: "fr"})
 	handler.ServeHTTP(httptest.NewRecorder(), req)
@@ -132,7 +132,7 @@ func TestI18n_LocalizerStoredInContext(t *testing.T) {
 	handler := I18n(bundle)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		l = GetLocalizer(r.Context())
 	}))
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 	require.NotNil(t, l)
 }
@@ -170,7 +170,7 @@ func TestLocalize_UnknownMessageID_ReturnsDefault(t *testing.T) {
 			DefaultMessage: &i18n.Message{ID: "no_such_key", Other: "fallback"},
 		})
 	}))
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 	assert.Equal(t, "fallback", got)
 }

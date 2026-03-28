@@ -5,10 +5,11 @@ import (
 	"net/http"
 
 	"github.com/go-chi/render"
-
 	"github.com/wahrwelt-kit/go-httpkit/httperr"
 	logger "github.com/wahrwelt-kit/go-logkit"
 )
+
+const msgInternalServerError = "Internal server error"
 
 // ErrorHandler handles errors by optionally logging and writing a JSON error response via HandleError
 type ErrorHandler struct {
@@ -56,6 +57,7 @@ type ValidationErrorResponse struct {
 // ValidationHTTPError is an HTTPError that carries per-field validation errors for JSON responses
 type ValidationHTTPError struct {
 	*httperr.HTTPError
+
 	Errors []ValidationErrorItem
 }
 
@@ -90,7 +92,7 @@ func (e *ValidationHTTPError) GetCode() string {
 }
 
 // HandleError writes a JSON error response. If err implements HTTPStatus and GetCode (e.g. *httperr.HTTPError),
-// that status and code are used; otherwise 500 and INTERNAL_ERROR. For 5xx the message is replaced with "Internal server error"
+// that status and code are used; otherwise 500 and INTERNAL_ERROR. For 5xx the message is replaced with msgInternalServerError
 // ValidationHTTPError is rendered as ValidationErrorResponse with per-field errors
 func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 	if err == nil || w == nil || r == nil {
@@ -100,7 +102,7 @@ func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.As(err, &valErr) {
 		if valErr.HTTPError == nil {
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, ErrorResponse{Code: httperr.CodeFromStatus(http.StatusInternalServerError), Message: "Internal server error"})
+			render.JSON(w, r, ErrorResponse{Code: httperr.CodeFromStatus(http.StatusInternalServerError), Message: msgInternalServerError})
 			return
 		}
 		render.Status(r, valErr.HTTPStatus())
@@ -119,7 +121,7 @@ func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 		}
 		message := httpErr.Error()
 		if httpErr.HTTPStatus() >= http.StatusInternalServerError {
-			message = "Internal server error"
+			message = msgInternalServerError
 		}
 		render.Status(r, httpErr.HTTPStatus())
 		render.JSON(w, r, ErrorResponse{
@@ -130,5 +132,5 @@ func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 	}
 
 	render.Status(r, http.StatusInternalServerError)
-	render.JSON(w, r, ErrorResponse{Code: httperr.CodeFromStatus(http.StatusInternalServerError), Message: "Internal server error"})
+	render.JSON(w, r, ErrorResponse{Code: httperr.CodeFromStatus(http.StatusInternalServerError), Message: msgInternalServerError})
 }

@@ -20,7 +20,7 @@ func TestHealthHandler_AllOk(t *testing.T) {
 		"redis": okChecker{},
 	})
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/health", nil)
+	r := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
 	handler(w, r)
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
@@ -41,7 +41,7 @@ func TestHealthHandler_Degraded(t *testing.T) {
 		"redis": errChecker{},
 	})
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/health", nil)
+	r := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
 	handler(w, r)
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 	var body struct {
@@ -60,7 +60,7 @@ func TestHealthHandler_NilChecker(t *testing.T) {
 		"db": nil,
 	})
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/health", nil)
+	r := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
 	handler(w, r)
 	assert.Equal(t, http.StatusOK, w.Code)
 	var body struct {
@@ -83,7 +83,7 @@ func TestHealthHandler_CustomTimeout(t *testing.T) {
 		"db": checker,
 	}, HealthTimeout(1*time.Second))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/health", nil)
+	r := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
 	before := time.Now()
 	handler(w, r)
 	assert.Equal(t, http.StatusOK, w.Code)

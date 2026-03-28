@@ -18,7 +18,7 @@ func TestRecoverer_NoPanic(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	chain.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -29,7 +29,7 @@ func TestRecoverer_Panic_500(t *testing.T) {
 		panic("test panic")
 	}))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	chain.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
@@ -42,7 +42,7 @@ func TestRecoverer_NilLogger(t *testing.T) {
 		panic("x")
 	}))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	chain.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }

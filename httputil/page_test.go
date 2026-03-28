@@ -65,7 +65,7 @@ func TestClampPerPage(t *testing.T) {
 
 func TestClampLimit(t *testing.T) {
 	t.Parallel()
-	p := Ptr(5) //nolint:modernize
+	p := Ptr(5) //nolint:modernize // testing the Ptr helper
 	got := ClampLimit(p, 10, 100)
 	if got != 5 {
 		t.Errorf("ClampLimit(5, 10, 100) = %d, want 5", got)
@@ -93,7 +93,7 @@ func TestParseIntQuery(t *testing.T) {
 		{"http://localhost/?page=abc", "page", true, 0},
 	}
 	for _, tt := range tests {
-		r, _ := http.NewRequest(http.MethodGet, tt.rawURL, nil)
+		r, _ := http.NewRequest(http.MethodGet, tt.rawURL, http.NoBody)
 		got := ParseIntQuery(r, tt.key)
 		if tt.wantNil {
 			if got != nil {

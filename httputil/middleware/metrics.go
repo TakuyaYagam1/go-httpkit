@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-
 	logger "github.com/wahrwelt-kit/go-logkit"
 )
 
@@ -15,7 +14,7 @@ import (
 type PathFromRequest func(*http.Request) string
 
 // Metrics returns middleware that records http_requests_total and http_request_duration_seconds. reg can be nil for DefaultRegisterer. pathFromRequest can be nil. Optional logger for registration errors; if nil, errors are silently ignored
-func Metrics(reg prometheus.Registerer, pathFromRequest PathFromRequest, log ...logger.Logger) func(http.Handler) http.Handler {
+func Metrics(reg prometheus.Registerer, pathFromRequest PathFromRequest, log ...logger.Logger) func(http.Handler) http.Handler { //nolint:revive,cyclop // metric registration handles AlreadyRegisteredError for both counters; complexity is intentional
 	var l logger.Logger
 	if len(log) > 0 {
 		l = log[0]

@@ -311,7 +311,7 @@ func TestDecodeAndValidateE_PlaygroundValidation(t *testing.T) {
 
 func TestDecodeAndValidate_NilBody(t *testing.T) {
 	t.Parallel()
-	r := httptest.NewRequest(http.MethodPost, "/", nil)
+	r := httptest.NewRequest(http.MethodPost, "/", http.NoBody)
 	r.Body = nil
 	w := httptest.NewRecorder()
 	var v noopValidator

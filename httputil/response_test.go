@@ -10,7 +10,7 @@ import (
 func TestRenderJSON(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	RenderJSON(w, r, http.StatusOK, map[string]string{"k": "v"})
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200", w.Code)
@@ -27,7 +27,7 @@ func TestRenderJSON(t *testing.T) {
 func TestRenderNoContent(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	RenderNoContent(w, r)
 	if w.Code != http.StatusNoContent {
 		t.Errorf("status = %d, want 204", w.Code)
@@ -40,7 +40,7 @@ func TestRenderNoContent(t *testing.T) {
 func TestRenderCreated(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	RenderCreated(w, r, map[string]int{"id": 1})
 	if w.Code != http.StatusCreated {
 		t.Errorf("status = %d, want 201", w.Code)
@@ -57,7 +57,7 @@ func TestRenderCreated(t *testing.T) {
 func TestRenderAccepted(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	RenderAccepted(w, r, map[string]string{"task": "queued"})
 	if w.Code != http.StatusAccepted {
 		t.Errorf("status = %d, want 202", w.Code)
@@ -74,7 +74,7 @@ func TestRenderAccepted(t *testing.T) {
 func TestRenderOK(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	RenderOK(w, r, "ok")
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200", w.Code)
@@ -91,7 +91,7 @@ func TestRenderOK(t *testing.T) {
 func TestRenderError(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	RenderError(w, r, http.StatusBadRequest, "invalid input")
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", w.Code)
@@ -111,7 +111,7 @@ func TestRenderError(t *testing.T) {
 func TestRenderErrorWithCode(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	RenderErrorWithCode(w, r, http.StatusForbidden, "denied", "CUSTOM_DENIED")
 	if w.Code != http.StatusForbidden {
 		t.Errorf("status = %d, want 403", w.Code)
@@ -131,7 +131,7 @@ func TestRenderErrorWithCode(t *testing.T) {
 func TestRenderInvalidID(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	RenderInvalidID(w, r)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", w.Code)
@@ -151,7 +151,7 @@ func TestRenderInvalidID(t *testing.T) {
 func TestRenderText(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	RenderText(w, r, http.StatusOK, "text/plain", "hello")
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200", w.Code)

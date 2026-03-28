@@ -21,6 +21,7 @@ const timeoutGracePeriod = 5 * time.Second
 
 type timeoutWriter struct {
 	http.ResponseWriter
+
 	mu             sync.Mutex
 	headerCopied   bool
 	timedOut       bool

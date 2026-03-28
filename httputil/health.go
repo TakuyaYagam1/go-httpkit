@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-const defaultHealthCheckTimeout = 5 * time.Second
+const (
+	defaultHealthCheckTimeout = 5 * time.Second
+	healthStatusError         = "error"
+)
 
 // Checker performs a single health check. Implementations should respect ctx cancellation
 type Checker interface {
@@ -43,7 +46,7 @@ func HealthTimeout(d time.Duration) HealthHandlerOption {
 // HealthHandler returns an HTTP handler that runs all checkers in parallel with a configurable timeout (default 5s)
 // and returns JSON with status ("ok" or "degraded") and optional per-check results
 // Responds 200 when all checks pass, 503 when any check returns an error or panics
-func HealthHandler(checkers map[string]Checker, opts ...HealthHandlerOption) http.HandlerFunc {
+func HealthHandler(checkers map[string]Checker, opts ...HealthHandlerOption) http.HandlerFunc { //nolint:gocognit // health handler dispatches multiple concurrent checks with timeout and error recovery
 	var o healthOpts
 	for _, opt := range opts {
 		opt(&o)
@@ -62,7 +65,7 @@ func HealthHandler(checkers map[string]Checker, opts ...HealthHandlerOption) htt
 				defer func() {
 					if p := recover(); p != nil {
 						mu.Lock()
-						results[name] = "error"
+						results[name] = healthStatusError
 						mu.Unlock()
 					}
 				}()
@@ -75,7 +78,7 @@ func HealthHandler(checkers map[string]Checker, opts ...HealthHandlerOption) htt
 				err := c.Check(ctx)
 				mu.Lock()
 				if err != nil {
-					results[name] = "error"
+					results[name] = healthStatusError
 				} else {
 					results[name] = "ok"
 				}
@@ -85,7 +88,7 @@ func HealthHandler(checkers map[string]Checker, opts ...HealthHandlerOption) htt
 		wg.Wait()
 		allOk := true
 		for _, v := range results {
-			if v == "error" {
+			if v == healthStatusError {
 				allOk = false
 				break
 			}

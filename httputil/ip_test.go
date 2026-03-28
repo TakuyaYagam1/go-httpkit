@@ -65,7 +65,7 @@ func TestGetClientIPE(t *testing.T) {
 		{"X-Real-IP only and in trusted uses remote", "10.0.0.2:80", map[string]string{"X-Real-IP": "10.0.0.1"}, []string{"10.0.0.0/8"}, "10.0.0.2"},
 	}
 	for _, tt := range tests {
-		r, _ := http.NewRequest(http.MethodGet, "/", nil)
+		r, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
 		r.RemoteAddr = tt.remoteAddr
 		for k, v := range tt.headers {
 			r.Header.Set(k, v)

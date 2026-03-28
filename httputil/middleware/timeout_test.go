@@ -17,7 +17,7 @@ func TestTimeout_CompletesInTime(t *testing.T) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	chain.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "ok", w.Body.String())
@@ -34,7 +34,7 @@ func TestTimeout_ExceedsLimit(t *testing.T) {
 		}
 	}))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	chain.ServeHTTP(w, r)
 	require.Equal(t, http.StatusServiceUnavailable, w.Code)
 	assert.Contains(t, w.Body.String(), "TIMEOUT")
@@ -49,7 +49,7 @@ func TestTimeoutWithLimit_BodyTooLarge(t *testing.T) {
 		_, writeErr = w.Write([]byte("this is more than ten bytes"))
 	}))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	chain.ServeHTTP(w, r)
 	// ErrResponseBodyTooLarge is returned to the handler's Write call, not the chain
 	require.ErrorIs(t, writeErr, ErrResponseBodyTooLarge)

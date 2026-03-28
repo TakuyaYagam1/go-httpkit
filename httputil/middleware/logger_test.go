@@ -29,7 +29,7 @@ func TestLogger_CallsNext(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
@@ -43,10 +43,10 @@ func TestLogger_LogsInfo_OnSuccess(t *testing.T) {
 	child := logmock.NewMockLogger(t)
 	var startFields, endFields logger.Fields
 	root.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert
+		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
 	}).Return(child)
 	child.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		endFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert
+		endFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
 	}).Return(child)
 	child.On("Info", "http request", mock.Anything).Return()
 
@@ -56,7 +56,7 @@ func TestLogger_LogsInfo_OnSuccess(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
 	req.RemoteAddr = "192.168.1.1:12345"
 	req.Header.Set("User-Agent", "test-agent")
 	rr := httptest.NewRecorder()
@@ -79,7 +79,7 @@ func TestLogger_LogsWarn_On4xx(t *testing.T) {
 	var endFields logger.Fields
 	root.On("WithFields", mock.Anything).Return(child)
 	child.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		endFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert
+		endFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
 	}).Return(child)
 	child.On("Warn", "http request error", mock.Anything).Return()
 
@@ -89,7 +89,7 @@ func TestLogger_LogsWarn_On4xx(t *testing.T) {
 		w.WriteHeader(http.StatusForbidden)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/forbidden", nil)
+	req := httptest.NewRequest(http.MethodGet, "/forbidden", http.NoBody)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
@@ -104,7 +104,7 @@ func TestLogger_LogsError_On5xx(t *testing.T) {
 	var endFields logger.Fields
 	root.On("WithFields", mock.Anything).Return(child)
 	child.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		endFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert
+		endFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
 	}).Return(child)
 	child.On("Error", "http request failed", mock.Anything).Return()
 
@@ -114,7 +114,7 @@ func TestLogger_LogsError_On5xx(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/broken", nil)
+	req := httptest.NewRequest(http.MethodGet, "/broken", http.NoBody)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
@@ -128,7 +128,7 @@ func TestLogger_IncludesQueryAndRequestID_WhenSet(t *testing.T) {
 	child := logmock.NewMockLogger(t)
 	var startFields logger.Fields
 	root.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert
+		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
 	}).Return(child)
 	child.On("WithFields", mock.Anything).Return(child)
 	child.On("Info", "http request", mock.Anything).Return()
@@ -140,7 +140,7 @@ func TestLogger_IncludesQueryAndRequestID_WhenSet(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/search?q=test&page=1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/search?q=test&page=1", http.NoBody)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
@@ -155,7 +155,7 @@ func TestLogger_RedactsSensitiveQueryParams(t *testing.T) {
 	child := logmock.NewMockLogger(t)
 	var startFields logger.Fields
 	root.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert
+		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
 	}).Return(child)
 	child.On("WithFields", mock.Anything).Return(child)
 	child.On("Info", "http request", mock.Anything).Return()
@@ -164,7 +164,7 @@ func TestLogger_RedactsSensitiveQueryParams(t *testing.T) {
 	r.Use(Logger(root, nil))
 	r.Get("/", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 
-	req := httptest.NewRequest(http.MethodGet, "/?token=secret&page=1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/?token=secret&page=1", http.NoBody)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
@@ -181,7 +181,7 @@ func TestLogger_WithRedactedParams_RedactsCustomParam(t *testing.T) {
 	child := logmock.NewMockLogger(t)
 	var startFields logger.Fields
 	root.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert
+		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
 	}).Return(child)
 	child.On("WithFields", mock.Anything).Return(child)
 	child.On("Info", "http request", mock.Anything).Return()
@@ -190,7 +190,7 @@ func TestLogger_WithRedactedParams_RedactsCustomParam(t *testing.T) {
 	r.Use(Logger(root, nil, WithRedactedParams("apiToken", "x_custom")))
 	r.Get("/", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 
-	req := httptest.NewRequest(http.MethodGet, "/?apiToken=abc&x_custom=val&safe=ok", nil)
+	req := httptest.NewRequest(http.MethodGet, "/?apiToken=abc&x_custom=val&safe=ok", http.NoBody)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
@@ -216,7 +216,7 @@ func TestLogger_WithSkipPaths_DoesNotLog(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
@@ -236,7 +236,7 @@ func TestLogger_WithSkipPaths_LogsNonSkipped(t *testing.T) {
 	r.Use(Logger(root, nil, WithSkipPaths("/health")))
 	r.Get("/api/users", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 
-	req := httptest.NewRequest(http.MethodGet, "/api/users", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/users", http.NoBody)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
@@ -250,7 +250,7 @@ func TestLogger_DoesNotRedactSubstringParamName(t *testing.T) {
 	child := logmock.NewMockLogger(t)
 	var startFields logger.Fields
 	root.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert
+		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
 	}).Return(child)
 	child.On("WithFields", mock.Anything).Return(child)
 	child.On("Info", "http request", mock.Anything).Return()
@@ -259,7 +259,7 @@ func TestLogger_DoesNotRedactSubstringParamName(t *testing.T) {
 	r.Use(Logger(root, nil))
 	r.Get("/", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 
-	req := httptest.NewRequest(http.MethodGet, "/?mytokenvalue=foo", nil)
+	req := httptest.NewRequest(http.MethodGet, "/?mytokenvalue=foo", http.NoBody)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 

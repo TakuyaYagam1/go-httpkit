@@ -52,7 +52,7 @@ func I18n(bundle *i18n.Bundle, opts ...I18nOption) func(http.Handler) http.Handl
 
 // GetLocalizer returns the *i18n.Localizer stored by the I18n middleware, or nil if not set
 func GetLocalizer(ctx context.Context) *i18n.Localizer {
-	l, _ := ctx.Value(localizerKey{}).(*i18n.Localizer)
+	l, _ := ctx.Value(localizerKey{}).(*i18n.Localizer) //nolint:revive // nil localizer is a valid state when middleware is not used
 	return l
 }
 

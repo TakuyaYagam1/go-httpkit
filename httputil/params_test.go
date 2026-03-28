@@ -26,7 +26,7 @@ func TestGetUserID_FromContext(t *testing.T) {
 func TestParseUUID_Success(t *testing.T) {
 	t.Parallel()
 	u := uuid.New()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	w := httptest.NewRecorder()
 	parsed, ok := ParseUUID(w, req, u.String())
 	require.True(t, ok)
@@ -35,7 +35,7 @@ func TestParseUUID_Success(t *testing.T) {
 
 func TestParseUUID_Empty(t *testing.T) {
 	t.Parallel()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	w := httptest.NewRecorder()
 	_, ok := ParseUUID(w, req, "")
 	require.False(t, ok)
@@ -44,7 +44,7 @@ func TestParseUUID_Empty(t *testing.T) {
 
 func TestParseUUID_Invalid(t *testing.T) {
 	t.Parallel()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	w := httptest.NewRecorder()
 	_, ok := ParseUUID(w, req, "not-a-uuid")
 	require.False(t, ok)
@@ -54,7 +54,7 @@ func TestParseUUID_Invalid(t *testing.T) {
 func TestParseUUIDField_Valid(t *testing.T) {
 	t.Parallel()
 	u := uuid.New()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	w := httptest.NewRecorder()
 	parsed, ok := ParseUUIDField(w, req, u.String(), "id")
 	require.True(t, ok)
@@ -63,7 +63,7 @@ func TestParseUUIDField_Valid(t *testing.T) {
 
 func TestParseAuthUserID_NoUser(t *testing.T) {
 	t.Parallel()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	w := httptest.NewRecorder()
 	_, ok := ParseAuthUserID(w, req)
 	require.False(t, ok)
@@ -73,7 +73,7 @@ func TestParseAuthUserID_NoUser(t *testing.T) {
 func TestParseAuthUserID_Valid(t *testing.T) {
 	t.Parallel()
 	u := uuid.New()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	req = req.WithContext(context.WithValue(req.Context(), UserIDKey, u.String()))
 	w := httptest.NewRecorder()
 	parsed, ok := ParseAuthUserID(w, req)

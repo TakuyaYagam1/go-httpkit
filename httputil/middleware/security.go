@@ -17,7 +17,7 @@ func WithCSP(csp string) SecurityOption {
 }
 
 // SecurityHeaders returns middleware that sets common security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, Content-Security-Policy). If addHSTS is true, adds Strict-Transport-Security (max-age=2 years, includeSubDomains, preload). Set addHSTS for HTTPS-only services. Options (e.g. WithCSP) override defaults
-func SecurityHeaders(addHSTS bool, opts ...SecurityOption) func(http.Handler) http.Handler {
+func SecurityHeaders(addHSTS bool, opts ...SecurityOption) func(http.Handler) http.Handler { //nolint:revive // addHSTS is a meaningful boolean config flag, not a control-flow coupling
 	cfg := securityOpts{csp: defaultCSP}
 	for _, opt := range opts {
 		opt(&cfg)

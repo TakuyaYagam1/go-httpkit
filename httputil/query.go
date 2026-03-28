@@ -8,7 +8,7 @@ import (
 
 // ParseBoolQuery parses the query parameter key as a boolean. Accepts "1", "true", "yes" for true and "0", "false", "no" for false
 // Returns (value, true) when valid, (false, false) when missing or invalid
-func ParseBoolQuery(r *http.Request, key string) (bool, bool) {
+func ParseBoolQuery(r *http.Request, key string) (value, ok bool) {
 	q := strings.TrimSpace(strings.ToLower(r.URL.Query().Get(key)))
 	if q == "" {
 		return false, false

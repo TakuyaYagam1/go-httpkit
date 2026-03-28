@@ -10,7 +10,7 @@ import (
 
 type requestIDKey struct{}
 
-func validRequestID(s string) bool {
+func validRequestID(s string) bool { //nolint:revive,cyclop // validates request ID character-by-character for security; complexity is inherent
 	for _, r := range s {
 		if r > unicode.MaxASCII || unicode.IsControl(r) || r == '\r' || r == '\n' {
 			return false
@@ -19,7 +19,7 @@ func validRequestID(s string) bool {
 			return false
 		}
 	}
-	return len(s) > 0 && len(s) <= 128
+	return s != "" && len(s) <= 128
 }
 
 // RequestID returns middleware that sets X-Request-ID from the request header or generates a new UUID, and stores it in the context. Invalid header values are replaced with a new UUID to prevent response splitting

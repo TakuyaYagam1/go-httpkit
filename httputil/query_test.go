@@ -113,9 +113,9 @@ func TestParseTimeQuery(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func requireReq(t *testing.T, method, url string) *http.Request {
+func requireReq(t *testing.T, _, url string) *http.Request {
 	t.Helper()
-	r, err := http.NewRequest(method, url, nil)
+	r, err := http.NewRequest(http.MethodGet, url, http.NoBody)
 	require.NoError(t, err)
 	return r
 }

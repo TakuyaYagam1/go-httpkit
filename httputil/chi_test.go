@@ -10,7 +10,7 @@ import (
 
 func TestChiPathFromRequest_NoContext(t *testing.T) {
 	t.Parallel()
-	r, _ := http.NewRequest(http.MethodGet, "/", nil)
+	r, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
 	got := ChiPathFromRequest(r)
 	if got != "" {
 		t.Errorf("ChiPathFromRequest(no context) = %q, want empty", got)
@@ -19,7 +19,7 @@ func TestChiPathFromRequest_NoContext(t *testing.T) {
 
 func TestChiPathFromRequest_WithPattern(t *testing.T) {
 	t.Parallel()
-	r, _ := http.NewRequest(http.MethodGet, "/api/v1/users", nil)
+	r, _ := http.NewRequest(http.MethodGet, "/api/v1/users", http.NoBody)
 	rctx := chi.NewRouteContext()
 	rctx.RoutePatterns = []string{"/api/v1/users"}
 	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
@@ -31,7 +31,7 @@ func TestChiPathFromRequest_WithPattern(t *testing.T) {
 
 func TestChiPathFromRequest_EmptyPatterns(t *testing.T) {
 	t.Parallel()
-	r, _ := http.NewRequest(http.MethodGet, "/", nil)
+	r, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
 	rctx := chi.NewRouteContext()
 	rctx.RoutePatterns = []string{}
 	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))

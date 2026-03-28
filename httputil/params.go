@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-
 	"github.com/wahrwelt-kit/go-httpkit/httperr"
 )
 

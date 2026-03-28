@@ -54,7 +54,7 @@ func ParseIntQuery(r *http.Request, key string) *int {
 }
 
 // Ptr returns a pointer to v. Useful for optional query params
-func Ptr[T any](v T) *T { //nolint:modernize
+func Ptr[T any](v T) *T { //nolint:modernize // generic pointer helper predates stdlib equivalent
 	return &v
 }
 

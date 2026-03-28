@@ -17,7 +17,7 @@ import (
 func TestHandleError_HTTPError(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	err := httperr.New(errors.New("not found"), http.StatusNotFound, "NOT_FOUND")
 	HandleError(w, r, err)
 	if w.Code != http.StatusNotFound {
@@ -38,7 +38,7 @@ func TestHandleError_HTTPError(t *testing.T) {
 func TestHandleError_HTTPError_EmptyCodeUsesCodeFromStatus(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	err := httperr.New(errors.New("bad"), http.StatusBadRequest, "")
 	HandleError(w, r, err)
 	var body ErrorResponse
@@ -53,7 +53,7 @@ func TestHandleError_HTTPError_EmptyCodeUsesCodeFromStatus(t *testing.T) {
 func TestHandleError_HTTPError_5xxHidesMessage(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	err := httperr.New(errors.New("internal detail"), http.StatusInternalServerError, "INTERNAL_ERROR")
 	HandleError(w, r, err)
 	if w.Code != http.StatusInternalServerError {
@@ -71,7 +71,7 @@ func TestHandleError_HTTPError_5xxHidesMessage(t *testing.T) {
 func TestHandleError_GenericError(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	HandleError(w, r, errors.New("generic"))
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 500", w.Code)
@@ -91,7 +91,7 @@ func TestHandleError_GenericError(t *testing.T) {
 func TestHandleError_ValidationHTTPError(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	err := &ValidationHTTPError{
 		HTTPError: httperr.New(errors.New("validation failed"), http.StatusBadRequest, "VALIDATION_ERROR"),
 		Errors: []ValidationErrorItem{
@@ -112,7 +112,7 @@ func TestHandleError_ValidationHTTPError(t *testing.T) {
 func TestHandleError_ValidationHTTPError_NilHTTPError(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	err := &ValidationHTTPError{HTTPError: nil, Errors: nil}
 	HandleError(w, r, err)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -124,7 +124,7 @@ func TestHandleError_ValidationHTTPError_NilHTTPError(t *testing.T) {
 func TestHandleError_Nil(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	HandleError(w, r, nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Empty(t, w.Body.String())
@@ -151,7 +151,7 @@ func TestErrorHandler_Handle_Nil(t *testing.T) {
 	t.Parallel()
 	h := &ErrorHandler{}
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	assert.False(t, h.Handle(w, r, nil, "test"))
 }
 
@@ -164,7 +164,7 @@ func TestErrorHandler_Handle_WithLogger_4xx(t *testing.T) {
 
 	h := &ErrorHandler{Logger: l}
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	err := httperr.New(errors.New("bad"), http.StatusBadRequest, "BAD_REQUEST")
 	assert.True(t, h.Handle(w, r, err, "client error"))
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -180,7 +180,7 @@ func TestErrorHandler_Handle_WithLogger_5xx(t *testing.T) {
 
 	h := &ErrorHandler{Logger: l}
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	err := errors.New("internal")
 	assert.True(t, h.Handle(w, r, err, "server error"))
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -207,7 +207,7 @@ func TestSanitizeValidationFieldName(t *testing.T) {
 }
 
 func BenchmarkHandleError_HTTPError(b *testing.B) {
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	err := httperr.New(errors.New("not found"), http.StatusNotFound, "NOT_FOUND")
 	for b.Loop() {
 		w := httptest.NewRecorder()
@@ -216,7 +216,7 @@ func BenchmarkHandleError_HTTPError(b *testing.B) {
 }
 
 func BenchmarkHandleError_GenericError(b *testing.B) {
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	err := errors.New("internal failure")
 	for b.Loop() {
 		w := httptest.NewRecorder()

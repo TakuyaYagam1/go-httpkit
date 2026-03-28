@@ -14,7 +14,7 @@ func TestSecurityHeaders(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	chain.ServeHTTP(w, r)
 	h := w.Header()
 	assert.Equal(t, "nosniff", h.Get("X-Content-Type-Options"))
@@ -32,7 +32,7 @@ func TestSecurityHeaders_WithHSTS(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	chain.ServeHTTP(w, r)
 	assert.Contains(t, w.Header().Get("Strict-Transport-Security"), "max-age=63072000")
 }
