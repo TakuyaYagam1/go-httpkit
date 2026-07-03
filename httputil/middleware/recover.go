@@ -21,9 +21,9 @@ func Recoverer(log logger.Logger) func(http.Handler) http.Handler {
 						})
 					}
 					if rw.claimHeaderSent() {
-						rw.ResponseWriter.Header().Set("Content-Type", "application/json")
+						rw.ResponseWriter.Header().Set("Content-Type", contentTypeJSON)
 						rw.ResponseWriter.WriteHeader(http.StatusInternalServerError)
-						_, _ = rw.ResponseWriter.Write([]byte(`{"code":"INTERNAL_ERROR","message":"Internal server error"}`))
+						_, _ = rw.ResponseWriter.Write([]byte(internalErrorResponseJSON))
 					}
 				}
 			}()

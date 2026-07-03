@@ -86,7 +86,21 @@ func TestStatusWriter_Flush_Supported(t *testing.T) {
 	rec := httptest.NewRecorder()
 	sw := &statusWriter{ResponseWriter: rec}
 	sw.Flush()
+	assert.Equal(t, http.StatusOK, sw.Status())
+	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.True(t, rec.Flushed)
+}
+
+func TestStatusWriter_Flush_MarksHeaderSent(t *testing.T) {
+	t.Parallel()
+	rec := httptest.NewRecorder()
+	sw := &statusWriter{ResponseWriter: rec}
+	sw.Flush()
+
+	assert.False(t, sw.claimHeaderSent())
+	sw.WriteHeader(http.StatusInternalServerError)
+	assert.Equal(t, http.StatusOK, sw.Status())
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 type noFlushWriter struct {

@@ -2,8 +2,10 @@ package httputil
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -21,6 +23,46 @@ func TestRenderJSON(t *testing.T) {
 	}
 	if body["k"] != "v" {
 		t.Errorf("body = %v", body)
+	}
+}
+
+func TestRenderJSON_ContentTypeAndEscapesHTML(t *testing.T) {
+	t.Parallel()
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+
+	RenderJSON(w, r, http.StatusOK, map[string]string{"html": "<script>"})
+
+	if ct := w.Header().Get("Content-Type"); ct != mimeApplicationJSON {
+		t.Errorf("Content-Type = %q, want %s", ct, mimeApplicationJSON)
+	}
+	if body := w.Body.String(); !strings.Contains(body, `\u003cscript\u003e`) {
+		t.Errorf("body = %q, want escaped HTML", body)
+	}
+}
+
+func TestRenderJSON_EncodeErrorHidesDetails(t *testing.T) {
+	t.Parallel()
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+
+	RenderJSON(w, r, http.StatusOK, map[string]float64{"invalid_number": math.Inf(1)})
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != mimeApplicationJSON {
+		t.Errorf("Content-Type = %q, want %s", ct, mimeApplicationJSON)
+	}
+	if strings.Contains(w.Body.String(), "unsupported value") || strings.Contains(w.Body.String(), "+Inf") {
+		t.Errorf("body leaked encode error details: %q", w.Body.String())
+	}
+	var body ErrorResponse
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.Code != "INTERNAL_ERROR" || body.Message != msgInternalServerError {
+		t.Errorf("body = %+v", body)
 	}
 }
 

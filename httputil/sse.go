@@ -20,7 +20,7 @@ var ErrSSEPayloadTooLarge = errors.New("SSE event payload exceeds size limit")
 
 // SSEWriter sends Server-Sent Events. Create with NewSSEWriter or NewSSEWriterWithLimit
 // Send and SendJSON are safe for concurrent use. Call Close when done
-// The 200 response is committed on the first successful Send or SendJSON, not in NewSSEWriter
+// The 200 response is committed on the first successful Send, SendJSON, or Heartbeat write, not in NewSSEWriter
 type SSEWriter struct {
 	w             http.ResponseWriter
 	flusher       http.Flusher
@@ -43,12 +43,12 @@ func MaxEventBytes(n int64) SSEOption {
 	return func(s *SSEWriter) { s.maxEventBytes = n }
 }
 
-// NewSSEWriter sets SSE headers on w and returns an SSEWriter. The 200 response is sent on the first Send or SendJSON. The second return value is false if w does not implement http.Flusher
+// NewSSEWriter sets SSE headers on w and returns an SSEWriter. The 200 response is sent on the first Send, SendJSON, or Heartbeat write. The second return value is false if w does not implement http.Flusher
 func NewSSEWriter(w http.ResponseWriter) (*SSEWriter, bool) {
 	return NewSSEWriterWithLimit(w)
 }
 
-// NewSSEWriterWithLimit is like NewSSEWriter but accepts options (e.g. MaxEventBytes). Does not write 200 until the first Send or SendJSON. If MaxEventBytes is not set, a default of 64KB is used to limit memory for untrusted event sizes
+// NewSSEWriterWithLimit is like NewSSEWriter but accepts options (e.g. MaxEventBytes). Does not write 200 until the first Send, SendJSON, or Heartbeat write. If MaxEventBytes is not set, a default of 64KB is used to limit memory for untrusted event sizes
 func NewSSEWriterWithLimit(w http.ResponseWriter, opts ...SSEOption) (*SSEWriter, bool) {
 	f, ok := w.(http.Flusher)
 	if !ok {
@@ -87,11 +87,6 @@ func (s *SSEWriter) Send(event, data string) error {
 	if s.done.Load() {
 		return ErrSSEClosed
 	}
-	if !s.headerSent {
-		s.w.WriteHeader(http.StatusOK)
-		s.flusher.Flush()
-		s.headerSent = true
-	}
 	var eventPart string
 	if event != "" {
 		event = sanitizeSSEField(event)
@@ -107,6 +102,10 @@ func (s *SSEWriter) Send(event, data string) error {
 	total := int64(len(eventPart)) + dataPart + 1
 	if s.maxEventBytes > 0 && total > s.maxEventBytes {
 		return ErrSSEPayloadTooLarge
+	}
+	if !s.headerSent {
+		s.w.WriteHeader(http.StatusOK)
+		s.headerSent = true
 	}
 	if eventPart != "" {
 		_, err := s.w.Write([]byte(eventPart))
@@ -167,6 +166,10 @@ func (s *SSEWriter) Heartbeat(ctx context.Context, interval time.Duration) {
 			if s.done.Load() {
 				s.mu.Unlock()
 				return
+			}
+			if !s.headerSent {
+				s.w.WriteHeader(http.StatusOK)
+				s.headerSent = true
 			}
 			_, err := s.w.Write([]byte(": ping\n\n"))
 			if err == nil {

@@ -10,63 +10,102 @@ HTTP helpers for JSON APIs: errors, responses, decoding, validation, pagination,
 
 ```bash
 go get github.com/wahrwelt-kit/go-httpkit
+go get github.com/wahrwelt-kit/go-httpkit/metrics github.com/wahrwelt-kit/go-httpkit/localization
 ```
 
+The root module contains the JSON API helpers and generic middleware. Prometheus and go-i18n integrations are separate modules so projects that do not use them keep a smaller dependency graph.
+
 ```go
-import "github.com/wahrwelt-kit/go-httpkit/httperr"
-import "github.com/wahrwelt-kit/go-httpkit/httputil"
-import "github.com/wahrwelt-kit/go-httpkit/httputil/middleware"
+import (
+	"github.com/wahrwelt-kit/go-httpkit/httperr"
+	"github.com/wahrwelt-kit/go-httpkit/httputil"
+	"github.com/wahrwelt-kit/go-httpkit/httputil/middleware"
+	"github.com/wahrwelt-kit/go-httpkit/localization"
+	"github.com/wahrwelt-kit/go-httpkit/metrics"
+)
 ```
 
 ## Subpackages
 
 ### httperr
 
-HTTP-aware errors: HTTPError (Err, StatusCode, Code, IsExpected), New, CodeFromStatus, IsExpectedClientError. Sentinels: ErrInvalidID, ErrNotAuthenticated, ErrForbidden, ErrNotFound, ErrConflict, ErrGone, ErrUnprocessableEntity, ErrTooManyRequests, ErrServiceUnavailable. NewValidationErrorf for 400 validation errors.
+HTTP-aware errors: HTTPError (Err, StatusCode, Code, IsExpected), New, CodeFromStatus, IsExpectedClientError. Sentinels: ErrInvalidID, ErrNotAuthenticated, ErrForbidden, ErrNotFound, ErrConflict, ErrGone, ErrUnprocessableEntity, ErrTooManyRequests, ErrTimeout, ErrServiceUnavailable. NewValidationErrorf for 400 validation errors.
 
 ### httputil
 
 - **Responses**: RenderJSON, RenderOK, RenderCreated, RenderAccepted, RenderNoContent, RenderError, RenderErrorWithCode, RenderInvalidID, RenderText
 - **Errors**: HandleError, ErrorHandler; ErrorResponse, ValidationErrorResponse
-- **Request**: DecodeAndValidate[T], DecodeAndValidateE[T], DecodeJSON[T]
+- **Request**: DecodeAndValidate[T], DecodeAndValidateE[T], DecodeJSON[T] with strict unknown-field rejection and trailing non-whitespace rejection
 - **Params**: ParseUUID, ParseUUIDField, ParseAuthUserID, GetUserID(ctx)
-- **Pagination**: ClampPage, ClampPerPage, ClampLimit, ParseIntQuery, TotalPages, NewPaginationMeta, Ptr[T]
+- **Pagination**: ClampPage, ClampPerPage, ClampLimit, ParseIntQuery, TotalPages, NewPaginationMeta
 - **Query**: ParseBoolQuery, ParseEnumQuery[T], ParseSortQuery, ParseTimeQuery
 - **Search**: EscapeILIKE, ValidateSearchQ, SanitizeSearchQ
 - **IP**: GetClientIPWithNets, GetClientIPE, ParseTrustedProxyCIDRs
-- **Chi**: ChiPathFromRequest(r)
 - **Multipart**: ParseMultipartFormLimit
-- **Download**: RenderJSONAttachment, RenderStream, RenderBytes
+- **Download**: RenderJSONAttachment, RenderStream, RenderStreamLimited, RenderBytes
 - **SSE**: SSEWriter, NewSSEWriter, NewSSEWriterWithLimit(MaxEventBytes), Send, SendJSON, Close, Heartbeat
 - **Health**: Checker, HealthHandler(checkers, HealthTimeout, HealthHideDetails) -> JSON status and checks
 
 ### httputil/middleware
 
 - **Logger(log, cidrs, opts...)**: request logging; WithRedactedParams to add sensitive query params; WithSkipPaths to suppress health/metrics noise
-- **Metrics**: Prometheus request count and duration; PathFromRequest for route pattern
 - **Recoverer(log)**: panic recovery, 500 response, stack log via go-logkit
-- **Timeout(d)**: request context timeout, 503 on deadline
-- **SecurityHeaders**: X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, CSP
+- **RequireJSON(maxBodyBytes)**: requires JSON Content-Type for JSON body routes and optionally limits request body size
+- **ContextTimeout(d)**: attaches a request context deadline; HandleError maps context.DeadlineExceeded to 503 TIMEOUT
+- **SecurityHeaders**: X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, CSP, COOP, CORP; WithHSTS for HTTPS-only services
 - **RequestID**: X-Request-ID from header or new UUID; GetRequestID(ctx)
 - **ClientIP(cidrs)**: resolves and stores client IP in context; GetClientIPFromContext
+
+### metrics
+
+Prometheus middleware: request count, duration, and optional in-flight gauge. Pass a stable route-pattern function for the path label; options include logger, namespace, subsystem, buckets, and const labels.
+
+### localization
+
+go-i18n middleware: resolves language from cookie, query parameter, and Accept-Language; stores `*i18n.Localizer` in request context.
 
 ## Example
 
 ```go
-r.Get("/items", func(w http.ResponseWriter, r *http.Request) {
-    field, dir, ok := httputil.ParseSortQuery(r, []string{"name", "score"})
-    if !ok {
-        field, dir = "name", "asc"
-    }
-    // ...
-})
-
-r.Get("/health", httputil.HealthHandler(map[string]httputil.Checker{
-    "db":    dbPinger,
-    "redis": redisPinger,
-}))
+errHandler := httputil.ErrorHandler{Logger: log}
 
 r.Use(middleware.Recoverer(log))
 r.Use(middleware.RequestID())
-r.Use(middleware.SecurityHeaders())
+r.Use(middleware.SecurityHeaders(
+	middleware.WithHSTS(63072000*time.Second, true, true),
+))
+r.Use(middleware.ContextTimeout(3 * time.Second))
+r.Use(metrics.Middleware(nil, func(r *http.Request) string {
+	return "/items"
+}, metrics.WithNamespace("myapp")))
+r.Use(localization.Middleware(bundle))
+
+r.With(middleware.RequireJSON(1 << 20)).Post("/items", func(w http.ResponseWriter, r *http.Request) {
+	var req createItemRequest
+	if !httputil.DecodeAndValidate(w, r, &req, validator) {
+		return
+	}
+	item, err := store.Create(r.Context(), req)
+	if errHandler.Handle(w, r, err, "create item") {
+		return
+	}
+	httputil.RenderCreated(w, r, item)
+})
+
+r.Get("/items", func(w http.ResponseWriter, r *http.Request) {
+	field, dir, ok := httputil.ParseSortQuery(r, []string{"name", "score"})
+	if !ok {
+		field, dir = "name", "asc"
+	}
+	items, err := store.List(r.Context(), field, dir)
+	if errHandler.Handle(w, r, err, "list items") {
+		return
+	}
+	httputil.RenderOK(w, r, items)
+})
+
+r.Get("/health", httputil.HealthHandler(map[string]httputil.Checker{
+	"db":    dbPinger,
+	"redis": redisPinger,
+}, httputil.HealthTimeout(2*time.Second)))
 ```

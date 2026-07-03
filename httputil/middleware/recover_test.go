@@ -33,8 +33,10 @@ func TestRecoverer_Panic_500(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	chain.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-	assert.Contains(t, w.Body.String(), "Internal server error")
+	if ct := w.Header().Get("Content-Type"); ct != contentTypeJSON {
+		t.Fatalf("Content-Type = %q, want %q", ct, contentTypeJSON)
+	}
+	assert.JSONEq(t, internalErrorResponseJSON, w.Body.String())
 }
 
 func TestRecoverer_NilLogger(t *testing.T) {

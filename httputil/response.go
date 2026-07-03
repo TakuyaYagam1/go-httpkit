@@ -5,15 +5,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/render"
-
 	"github.com/wahrwelt-kit/go-httpkit/httperr"
 )
 
 // RenderJSON writes data as JSON with the given HTTP status
-func RenderJSON[T any](w http.ResponseWriter, r *http.Request, status int, data T) {
-	render.Status(r, status)
-	render.JSON(w, r, data)
+func RenderJSON[T any](w http.ResponseWriter, _ *http.Request, status int, data T) {
+	writeJSON(w, status, data)
 }
 
 // RenderNoContent sends 204 No Content with no body
@@ -22,41 +19,36 @@ func RenderNoContent(w http.ResponseWriter, _ *http.Request) {
 }
 
 // RenderCreated sends 201 Created with data as JSON body
-func RenderCreated[T any](w http.ResponseWriter, r *http.Request, data T) {
-	render.Status(r, http.StatusCreated)
-	render.JSON(w, r, data)
+func RenderCreated[T any](w http.ResponseWriter, _ *http.Request, data T) {
+	writeJSON(w, http.StatusCreated, data)
 }
 
 // RenderAccepted sends 202 Accepted with data as JSON body
-func RenderAccepted[T any](w http.ResponseWriter, r *http.Request, data T) {
-	render.Status(r, http.StatusAccepted)
-	render.JSON(w, r, data)
+func RenderAccepted[T any](w http.ResponseWriter, _ *http.Request, data T) {
+	writeJSON(w, http.StatusAccepted, data)
 }
 
 // RenderOK sends 200 OK with data as JSON body
-func RenderOK[T any](w http.ResponseWriter, r *http.Request, data T) {
-	render.Status(r, http.StatusOK)
-	render.JSON(w, r, data)
+func RenderOK[T any](w http.ResponseWriter, _ *http.Request, data T) {
+	writeJSON(w, http.StatusOK, data)
 }
 
 // RenderError sends JSON error with status and message; code is derived from status
 // For 5xx status, message is replaced with msgInternalServerError to avoid leaking details
-func RenderError(w http.ResponseWriter, r *http.Request, status int, message string) {
-	render.Status(r, status)
+func RenderError(w http.ResponseWriter, _ *http.Request, status int, message string) {
 	if status >= http.StatusInternalServerError {
 		message = msgInternalServerError
 	}
-	render.JSON(w, r, ErrorResponse{Code: httperr.CodeFromStatus(status), Message: message})
+	writeJSON(w, status, ErrorResponse{Code: httperr.CodeFromStatus(status), Message: message})
 }
 
 // RenderErrorWithCode sends JSON error with explicit code
 // For 5xx status, message is replaced with msgInternalServerError to avoid leaking details
-func RenderErrorWithCode(w http.ResponseWriter, r *http.Request, status int, message, code string) {
-	render.Status(r, status)
+func RenderErrorWithCode(w http.ResponseWriter, _ *http.Request, status int, message, code string) {
 	if status >= http.StatusInternalServerError {
 		message = msgInternalServerError
 	}
-	render.JSON(w, r, ErrorResponse{Code: code, Message: message})
+	writeJSON(w, status, ErrorResponse{Code: code, Message: message})
 }
 
 // RenderInvalidID sends 400 Bad Request with code INVALID_ID
@@ -65,7 +57,7 @@ func RenderInvalidID(w http.ResponseWriter, r *http.Request) {
 }
 
 var safeTextContentTypes = map[string]struct{}{
-	mimeTextPlain: {}, "application/json": {}, "application/octet-stream": {},
+	mimeTextPlain: {}, mimeApplicationJSON: {}, "application/octet-stream": {},
 }
 
 // RenderText writes a plain text response with the given status, Content-Type, and body

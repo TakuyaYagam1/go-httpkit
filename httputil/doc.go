@@ -1,4 +1,4 @@
-// Package httputil provides HTTP helpers for JSON APIs and chi-based servers
+// Package httputil provides HTTP helpers for JSON APIs
 //
 // # Error handling and responses
 //
@@ -11,7 +11,7 @@
 //
 // # Request decoding and validation
 //
-// DecodeAndValidate reads JSON from the body (limit MaxRequestBodySize), disallows unknown fields and trailing data,
+// DecodeAndValidate reads JSON from the body (limit MaxRequestBodySize), disallows unknown fields and trailing non-whitespace data,
 // then validates with Validator; on failure it writes the response and returns false. DecodeAndValidateE returns an
 // error instead of writing. DecodeJSON decodes without validation. ParseMultipartFormLimit parses multipart form with
 // body and memory limits
@@ -20,7 +20,7 @@
 //
 // ClampPage, ClampPerPage, ClampLimit, ParseIntQuery, TotalPages, NewPaginationMeta, and PaginationMeta support
 // page/per-page handling. Paginated[T] holds a page of items and metadata; NewPaginated builds it; FetchPage runs
-// fetch and count in parallel and returns Paginated. MaxPage is the maximum allowed page number
+// fetch and count sequentially and returns Paginated. MaxPage is the maximum allowed page number
 //
 // # Query parsing
 //
@@ -31,16 +31,15 @@
 // ParseTrustedProxyCIDRs parses CIDR strings for trusted proxies. GetClientIPWithNets returns the client IP using
 // X-Real-IP and X-Forwarded-For when the connection is from a trusted net. Restrict trustedNets to your actual proxy/load-balancer CIDRs; overly broad ranges (e.g. 0.0.0.0/0) allow clients to spoof X-Forwarded-For. GetClientIPE parses CIDRs from strings and returns an error on invalid input
 //
-// # Path and context
+// # Context
 //
-// ChiPathFromRequest returns the chi route pattern. UserIDKey is the context key for the authenticated user ID
-// GetUserID, ParseUUID, ParseUUIDField, and ParseAuthUserID read or parse IDs and optionally write error responses
+// UserIDKey is the context key for the authenticated user ID. GetUserID, ParseUUID, ParseUUIDField, and ParseAuthUserID read or parse IDs and optionally write error responses
 //
 // # Search and download
 //
 // ValidateSearchQ checks length and control characters. EscapeILIKE and SanitizeSearchQ escape strings for PostgreSQL
 // ILIKE. RenderJSONAttachment, RenderStream, RenderStreamLimited, and RenderBytes send file downloads with
-// sanitized Content-Disposition filenames. RenderStreamLimited returns ErrStreamTruncated when maxBytes > 0 and the source exceeds the limit (response is already committed). RenderStream and RenderStreamLimited return ErrInvalidContentType for disallowed content types
+// sanitized Content-Disposition filenames. RenderStreamLimited returns ErrStreamTooLarge before writing the response when maxBytes > 0 and the source exceeds the limit. RenderStream and RenderStreamLimited return ErrInvalidContentType for disallowed content types
 //
 // # SSE and health
 //

@@ -19,6 +19,7 @@ func TestCodeFromStatus(t *testing.T) {
 		{http.StatusConflict, CodeConflict},
 		{http.StatusGone, CodeGone},
 		{http.StatusPaymentRequired, CodePaymentRequired},
+		{http.StatusUnsupportedMediaType, CodeUnsupportedMediaType},
 		{http.StatusUnprocessableEntity, CodeValidationError},
 		{http.StatusTooManyRequests, CodeRateLimitExceeded},
 		{http.StatusServiceUnavailable, CodeServiceUnavailable},
@@ -110,6 +111,7 @@ func TestSentinels_StatusCodeAndCode(t *testing.T) {
 		{"ErrGone", ErrGone(), http.StatusGone, CodeGone},
 		{"ErrUnprocessableEntity", ErrUnprocessableEntity(), http.StatusUnprocessableEntity, CodeValidationError},
 		{"ErrTooManyRequests", ErrTooManyRequests(), http.StatusTooManyRequests, CodeRateLimitExceeded},
+		{"ErrTimeout", ErrTimeout(), http.StatusServiceUnavailable, CodeTimeout},
 		{"ErrServiceUnavailable", ErrServiceUnavailable(), http.StatusServiceUnavailable, CodeServiceUnavailable},
 	}
 	for _, tt := range tests {

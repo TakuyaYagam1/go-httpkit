@@ -3,27 +3,74 @@ on:
   push:
     branches: [main, master]
   pull_request:
+env:
+  GO_VERSION: "1.26.4"
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [".", "metrics", "localization"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.26"
+          go-version: ${{ env.GO_VERSION }}
       - name: Vet and test
+        working-directory: ${{ matrix.module }}
         run: |
           go mod download
+          go mod tidy -diff
           go vet ./...
+          go test ./...
+
+  race:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [".", "metrics", "localization"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Race tests
+        working-directory: ${{ matrix.module }}
+        run: |
+          go mod download
           go test -race ./...
 
-  lint:
+  fuzz:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.26"
+          go-version: ${{ env.GO_VERSION }}
+      - name: Fuzz smoke
+        run: make test-fuzz FUZZTIME=1s
+
+  leaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Goroutine leak checks
+        run: make test-leaks
+
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [".", "metrics", "localization"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
       - uses: golangci/golangci-lint-action@v9.2.0
         with:
           version: v2.12.1
+          working-directory: ${{ matrix.module }}

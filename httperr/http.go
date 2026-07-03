@@ -23,6 +23,8 @@ func CodeFromStatus(status int) string {
 		return CodeGone
 	case http.StatusPaymentRequired:
 		return CodePaymentRequired
+	case http.StatusUnsupportedMediaType:
+		return CodeUnsupportedMediaType
 	case http.StatusUnprocessableEntity:
 		return CodeValidationError
 	case http.StatusTooManyRequests:

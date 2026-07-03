@@ -19,7 +19,7 @@ func TestRenderJSONAttachment(t *testing.T) {
 		t.Fatalf("RenderJSONAttachment: %v", err)
 	}
 	ct := w.Header().Get("Content-Type")
-	if !strings.HasPrefix(ct, "application/json") {
+	if !strings.HasPrefix(ct, mimeApplicationJSON) {
 		t.Errorf("Content-Type = %q", ct)
 	}
 	cd := w.Header().Get("Content-Disposition")
@@ -119,15 +119,14 @@ func TestRenderStream_AllInvalidFilename(t *testing.T) {
 	}
 }
 
-func TestRenderStreamLimited_Truncated(t *testing.T) {
+func TestRenderStreamLimited_TooLargeFailsBeforeWrite(t *testing.T) {
 	t.Parallel()
-	// Source has 10 bytes, limit is 5 - should return ErrStreamTruncated
 	w := httptest.NewRecorder()
 	src := bytes.NewReader([]byte("0123456789"))
 	err := RenderStreamLimited(w, "application/octet-stream", "out.bin", src, 5)
-	require.ErrorIs(t, err, ErrStreamTruncated)
-	// The first 5 bytes must have been written
-	assert.Equal(t, "01234", w.Body.String())
+	require.ErrorIs(t, err, ErrStreamTooLarge)
+	assert.Empty(t, w.Header())
+	assert.Empty(t, w.Body.String())
 }
 
 func TestRenderStreamLimited_NoLimit(t *testing.T) {
@@ -137,6 +136,16 @@ func TestRenderStreamLimited_NoLimit(t *testing.T) {
 	err := RenderStreamLimited(w, "application/octet-stream", "out.bin", src, 0)
 	require.NoError(t, err)
 	assert.Equal(t, "hello", w.Body.String())
+}
+
+func TestRenderStreamLimited_WithinLimit(t *testing.T) {
+	t.Parallel()
+	w := httptest.NewRecorder()
+	src := bytes.NewReader([]byte("hello"))
+	err := RenderStreamLimited(w, "application/octet-stream", "out.bin", src, 5)
+	require.NoError(t, err)
+	assert.Equal(t, "hello", w.Body.String())
+	assert.Equal(t, "application/octet-stream", w.Header().Get("Content-Type"))
 }
 
 func TestRenderStream_InvalidContentType(t *testing.T) {

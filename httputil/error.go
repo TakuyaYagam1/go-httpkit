@@ -1,10 +1,9 @@
 package httputil
 
 import (
+	"context"
 	"errors"
 	"net/http"
-
-	"github.com/go-chi/render"
 
 	"github.com/wahrwelt-kit/go-httpkit/httperr"
 	logger "github.com/wahrwelt-kit/go-logkit"
@@ -101,12 +100,10 @@ func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 	}
 	if valErr, ok := errors.AsType[*ValidationHTTPError](err); ok {
 		if valErr.HTTPError == nil {
-			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, ErrorResponse{Code: httperr.CodeFromStatus(http.StatusInternalServerError), Message: msgInternalServerError})
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Code: httperr.CodeFromStatus(http.StatusInternalServerError), Message: msgInternalServerError})
 			return
 		}
-		render.Status(r, valErr.HTTPStatus())
-		render.JSON(w, r, ValidationErrorResponse{
+		writeJSON(w, valErr.HTTPStatus(), ValidationErrorResponse{
 			Code:    valErr.GetCode(),
 			Message: msgValidationFailed,
 			Errors:  valErr.Errors,
@@ -122,14 +119,19 @@ func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 		if httpErr.HTTPStatus() >= http.StatusInternalServerError {
 			message = msgInternalServerError
 		}
-		render.Status(r, httpErr.HTTPStatus())
-		render.JSON(w, r, ErrorResponse{
+		writeJSON(w, httpErr.HTTPStatus(), ErrorResponse{
 			Code:    code,
 			Message: message,
 		})
 		return
 	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{
+			Code:    httperr.CodeTimeout,
+			Message: "request timeout",
+		})
+		return
+	}
 
-	render.Status(r, http.StatusInternalServerError)
-	render.JSON(w, r, ErrorResponse{Code: httperr.CodeFromStatus(http.StatusInternalServerError), Message: msgInternalServerError})
+	writeJSON(w, http.StatusInternalServerError, ErrorResponse{Code: httperr.CodeFromStatus(http.StatusInternalServerError), Message: msgInternalServerError})
 }

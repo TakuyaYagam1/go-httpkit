@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/render"
 	playvalidator "github.com/go-playground/validator/v10"
 
 	"github.com/wahrwelt-kit/go-httpkit/httperr"
@@ -21,6 +20,27 @@ var ErrRequestBodyTooLarge = errors.New(msgBodyTooLarge)
 
 type decodeConfig struct {
 	maxBodySize int64
+}
+
+type decodeErrorKind int
+
+const (
+	decodeErrorBadRequest decodeErrorKind = iota + 1
+	decodeErrorInvalidJSON
+	decodeErrorBodyTooLarge
+	decodeErrorTrailingData
+)
+
+type decodeError struct {
+	kind decodeErrorKind
+	err  error
+}
+
+func (e *decodeError) Error() string {
+	if e == nil || e.err == nil {
+		return ""
+	}
+	return e.err.Error()
 }
 
 // DecodeOption configures decode behaviour (e.g. body size limit)
@@ -47,14 +67,117 @@ type Validator interface {
 	Validate(any) error
 }
 
-func rejectTrailingJSON(limited io.Reader, dec *json.Decoder) bool {
-	buf := make([]byte, 1)
-	n, _ := dec.Buffered().Read(buf)
-	if n > 0 {
-		return true
+func hasTrailingJSONData(limited io.Reader, dec *json.Decoder) (bool, error) {
+	r := io.MultiReader(dec.Buffered(), limited)
+	buf := make([]byte, 512)
+	for {
+		n, err := r.Read(buf)
+		for _, b := range buf[:n] {
+			if !isJSONWhitespace(b) {
+				return true, nil
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				return false, nil
+			}
+			return false, err
+		}
 	}
-	_, err := limited.Read(buf)
-	return err != io.EOF
+}
+
+func isJSONWhitespace(b byte) bool {
+	switch b {
+	case ' ', '\t', '\r', '\n':
+		return true
+	default:
+		return false
+	}
+}
+
+func decodeJSONBody[T any](r *http.Request, opts []DecodeOption) (T, *decodeError) {
+	var req T
+	cfg := applyDecodeOptions(opts)
+	if r == nil || r.Body == nil {
+		return req, &decodeError{kind: decodeErrorBadRequest, err: errors.New("request or body is nil")}
+	}
+	hitLimit := false
+	limited := &limitTrackingReader{r: r.Body, limit: cfg.maxBodySize + 1, hitLimit: &hitLimit}
+	dec := json.NewDecoder(limited)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			return req, &decodeError{kind: decodeErrorBodyTooLarge, err: ErrRequestBodyTooLarge}
+		}
+		return req, &decodeError{kind: decodeErrorInvalidJSON, err: err}
+	}
+	if hitLimit {
+		return req, &decodeError{kind: decodeErrorBodyTooLarge, err: ErrRequestBodyTooLarge}
+	}
+	hasTrailing, err := hasTrailingJSONData(limited, dec)
+	if err != nil {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			return req, &decodeError{kind: decodeErrorBodyTooLarge, err: ErrRequestBodyTooLarge}
+		}
+		return req, &decodeError{kind: decodeErrorInvalidJSON, err: err}
+	}
+	if hasTrailing {
+		_, _ = io.Copy(io.Discard, limited)
+		if hitLimit {
+			return req, &decodeError{kind: decodeErrorBodyTooLarge, err: ErrRequestBodyTooLarge}
+		}
+		return req, &decodeError{kind: decodeErrorTrailingData, err: errors.New("trailing data after JSON")}
+	}
+	if hitLimit {
+		return req, &decodeError{kind: decodeErrorBodyTooLarge, err: ErrRequestBodyTooLarge}
+	}
+	return req, nil
+}
+
+func (e *decodeError) httpError() *httperr.HTTPError {
+	switch e.kind {
+	case decodeErrorBadRequest:
+		return httperr.New(errors.New("request or body is nil"), http.StatusBadRequest, httperr.CodeBadRequest)
+	case decodeErrorBodyTooLarge:
+		return httperr.New(errors.New(msgBodyTooLarge), http.StatusRequestEntityTooLarge, httperr.CodeRequestEntityTooLarge)
+	case decodeErrorInvalidJSON:
+		return httperr.New(errors.New("invalid JSON in request body"), http.StatusBadRequest, httperr.CodeInvalidJSON)
+	case decodeErrorTrailingData:
+		return httperr.New(errors.New("trailing data after JSON"), http.StatusBadRequest, httperr.CodeInvalidJSON)
+	}
+	return httperr.New(errors.New("request or body is nil"), http.StatusBadRequest, httperr.CodeBadRequest)
+}
+
+func (e *decodeError) writeResponse(w http.ResponseWriter) {
+	status, body := e.response()
+	writeJSON(w, status, body)
+}
+
+func (e *decodeError) response() (int, ErrorResponse) {
+	switch e.kind {
+	case decodeErrorBadRequest:
+		return http.StatusBadRequest, ErrorResponse{Code: httperr.CodeBadRequest, Message: "request body is nil"}
+	case decodeErrorBodyTooLarge:
+		return http.StatusRequestEntityTooLarge, ErrorResponse{Code: httperr.CodeRequestEntityTooLarge, Message: msgBodyTooLarge}
+	case decodeErrorInvalidJSON:
+		return http.StatusBadRequest, ErrorResponse{Code: httperr.CodeInvalidJSON, Message: "invalid JSON format"}
+	case decodeErrorTrailingData:
+		return http.StatusBadRequest, ErrorResponse{Code: httperr.CodeInvalidJSON, Message: "trailing data after JSON"}
+	default:
+		return http.StatusBadRequest, ErrorResponse{Code: httperr.CodeBadRequest, Message: "invalid request body"}
+	}
+}
+
+func (e *decodeError) jsonError() error {
+	switch e.kind {
+	case decodeErrorBodyTooLarge:
+		return ErrRequestBodyTooLarge
+	case decodeErrorBadRequest:
+		return errors.New("request or body is nil")
+	case decodeErrorInvalidJSON, decodeErrorTrailingData:
+		return e.err
+	}
+	return e.err
 }
 
 type limitTrackingReader struct {
@@ -121,62 +244,31 @@ func validationErrorsToItems(valErr playvalidator.ValidationErrors) []Validation
 	return items
 }
 
-// DecodeAndValidate reads JSON from the request body (limit from WithMaxBodySize or MaxRequestBodySize, no unknown fields, no trailing data),
+// DecodeAndValidate reads JSON from the request body (limit from WithMaxBodySize or MaxRequestBodySize, no unknown fields, no trailing non-whitespace data),
 // then validates with v. On error it writes the appropriate JSON response and returns (zero, false)
 func DecodeAndValidate[T any](w http.ResponseWriter, r *http.Request, v Validator, opts ...DecodeOption) (T, bool) {
 	var req T
-	cfg := applyDecodeOptions(opts)
 	if w == nil || r == nil {
 		if w != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(ErrorResponse{Code: httperr.CodeBadRequest, Message: "request or response writer is nil"}) //nolint:errchkjson // best-effort error response when request is nil
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Code: httperr.CodeBadRequest, Message: "request or response writer is nil"})
 		}
 		return req, false
 	}
-	if r.Body == nil {
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, ErrorResponse{Code: httperr.CodeBadRequest, Message: "request body is nil"})
-		return req, false
-	}
-	hitLimit := false
-	limited := &limitTrackingReader{r: r.Body, limit: cfg.maxBodySize + 1, hitLimit: &hitLimit}
-	dec := json.NewDecoder(limited)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&req); err != nil {
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, ErrorResponse{Code: httperr.CodeInvalidJSON, Message: "invalid JSON format"})
-		return req, false
-	}
-	if hitLimit {
-		render.Status(r, http.StatusRequestEntityTooLarge)
-		render.JSON(w, r, ErrorResponse{Code: httperr.CodeRequestEntityTooLarge, Message: msgBodyTooLarge})
-		return req, false
-	}
-	buf := make([]byte, 1)
-	if n, _ := limited.Read(buf); n > 0 || rejectTrailingJSON(limited, dec) {
-		_, _ = io.Copy(io.Discard, limited)
-		if hitLimit {
-			render.Status(r, http.StatusRequestEntityTooLarge)
-			render.JSON(w, r, ErrorResponse{Code: httperr.CodeRequestEntityTooLarge, Message: msgBodyTooLarge})
-			return req, false
-		}
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, ErrorResponse{Code: httperr.CodeInvalidJSON, Message: "trailing data after JSON"})
+	req, decErr := decodeJSONBody[T](r, opts)
+	if decErr != nil {
+		decErr.writeResponse(w)
 		return req, false
 	}
 	if v == nil {
-		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, ErrorResponse{Code: httperr.CodeInternalError, Message: msgInternalServerError})
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Code: httperr.CodeInternalError, Message: msgInternalServerError})
 		return req, false
 	}
 	if err := v.Validate(req); err != nil {
-		render.Status(r, http.StatusBadRequest)
 		if valErr, ok := errors.AsType[playvalidator.ValidationErrors](err); ok {
 			items := validationErrorsToItems(valErr)
-			render.JSON(w, r, ValidationErrorResponse{Code: httperr.CodeValidationError, Message: msgValidationFailed, Errors: items})
+			writeJSON(w, http.StatusBadRequest, ValidationErrorResponse{Code: httperr.CodeValidationError, Message: msgValidationFailed, Errors: items})
 		} else {
-			render.JSON(w, r, ErrorResponse{Code: httperr.CodeValidationError, Message: msgValidationFailed})
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Code: httperr.CodeValidationError, Message: msgValidationFailed})
 		}
 		return req, false
 	}
@@ -185,30 +277,11 @@ func DecodeAndValidate[T any](w http.ResponseWriter, r *http.Request, v Validato
 }
 
 // DecodeAndValidateE reads and validates JSON from the request body and returns an error without writing a response
-// Returns *httperr.HTTPError for invalid JSON, trailing data, body too large, or validation failure
+// Returns *httperr.HTTPError for invalid JSON, trailing non-whitespace data, body too large, or validation failure
 func DecodeAndValidateE[T any](r *http.Request, v Validator, opts ...DecodeOption) (T, error) {
-	var req T
-	cfg := applyDecodeOptions(opts)
-	if r == nil || r.Body == nil {
-		return req, httperr.New(errors.New("request or body is nil"), http.StatusBadRequest, httperr.CodeBadRequest)
-	}
-	hitLimit := false
-	limited := &limitTrackingReader{r: r.Body, limit: cfg.maxBodySize + 1, hitLimit: &hitLimit}
-	dec := json.NewDecoder(limited)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&req); err != nil {
-		return req, httperr.New(errors.New("invalid JSON in request body"), http.StatusBadRequest, httperr.CodeInvalidJSON)
-	}
-	if hitLimit {
-		return req, httperr.New(errors.New(msgBodyTooLarge), http.StatusRequestEntityTooLarge, httperr.CodeRequestEntityTooLarge)
-	}
-	buf := make([]byte, 1)
-	if n, _ := limited.Read(buf); n > 0 || rejectTrailingJSON(limited, dec) {
-		_, _ = io.Copy(io.Discard, limited)
-		if hitLimit {
-			return req, httperr.New(errors.New(msgBodyTooLarge), http.StatusRequestEntityTooLarge, httperr.CodeRequestEntityTooLarge)
-		}
-		return req, httperr.New(errors.New("trailing data after JSON"), http.StatusBadRequest, httperr.CodeInvalidJSON)
+	req, decErr := decodeJSONBody[T](r, opts)
+	if decErr != nil {
+		return req, decErr.httpError()
 	}
 	if v == nil {
 		return req, httperr.New(errors.New("validator is nil"), http.StatusInternalServerError, httperr.CodeInternalError)
@@ -226,32 +299,15 @@ func DecodeAndValidateE[T any](r *http.Request, v Validator, opts ...DecodeOptio
 	return req, nil
 }
 
-// DecodeJSON decodes JSON from the request body (limit from WithMaxBodySize or MaxRequestBodySize, no unknown fields, no trailing data) into v
+// DecodeJSON decodes JSON from the request body (limit from WithMaxBodySize or MaxRequestBodySize, no unknown fields, no trailing non-whitespace data) into v
 func DecodeJSON[T any](r *http.Request, v *T, opts ...DecodeOption) error {
-	cfg := applyDecodeOptions(opts)
-	if r == nil || r.Body == nil {
-		return errors.New("request or body is nil")
-	}
 	if v == nil {
 		return errors.New("decode target is nil")
 	}
-	hitLimit := false
-	limited := &limitTrackingReader{r: r.Body, limit: cfg.maxBodySize + 1, hitLimit: &hitLimit}
-	dec := json.NewDecoder(limited)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(v); err != nil {
-		return err
+	req, decErr := decodeJSONBody[T](r, opts)
+	if decErr != nil {
+		return decErr.jsonError()
 	}
-	if hitLimit {
-		return ErrRequestBodyTooLarge
-	}
-	buf := make([]byte, 1)
-	if n, _ := limited.Read(buf); n > 0 || rejectTrailingJSON(limited, dec) {
-		_, _ = io.Copy(io.Discard, limited)
-		if hitLimit {
-			return ErrRequestBodyTooLarge
-		}
-		return errors.New("trailing data after JSON")
-	}
+	*v = req
 	return nil
 }

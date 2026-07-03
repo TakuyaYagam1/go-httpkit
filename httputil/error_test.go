@@ -1,6 +1,7 @@
 package httputil
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -64,7 +65,7 @@ func TestHandleError_HTTPError_5xxHidesMessage(t *testing.T) {
 	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
-	if body.Message != "Internal server error" {
+	if body.Message != msgInternalServerError {
 		t.Errorf("Message = %q, want generic message", body.Message)
 	}
 }
@@ -84,9 +85,21 @@ func TestHandleError_GenericError(t *testing.T) {
 	if body.Code != "INTERNAL_ERROR" {
 		t.Errorf("Code = %q", body.Code)
 	}
-	if body.Message != "Internal server error" {
+	if body.Message != msgInternalServerError {
 		t.Errorf("Message = %q", body.Message)
 	}
+}
+
+func TestHandleError_ContextDeadlineExceeded(t *testing.T) {
+	t.Parallel()
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	HandleError(w, r, context.DeadlineExceeded)
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+	var body ErrorResponse
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&body))
+	assert.Equal(t, httperr.CodeTimeout, body.Code)
+	assert.Equal(t, "request timeout", body.Message)
 }
 
 func TestHandleError_ValidationHTTPError(t *testing.T) {

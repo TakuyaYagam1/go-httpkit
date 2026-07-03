@@ -11,6 +11,7 @@ const (
 	testIP10001      = "10.0.0.1"
 	testIPPublic1    = "203.0.113.1"
 	testRemoteAddr10 = "10.0.0.2:80"
+	testInvalidCIDR  = "bad"
 )
 
 func TestParseTrustedProxyCIDRs(t *testing.T) {
@@ -24,9 +25,9 @@ func TestParseTrustedProxyCIDRs(t *testing.T) {
 	}{
 		{"empty", nil, false, 0, false},
 		{"empty slice", []string{}, false, 0, false},
-		{"all invalid", []string{"bad", "10.0.0.0/33"}, true, 0, false},
+		{"all invalid", []string{testInvalidCIDR, "10.0.0.0/33"}, true, 0, false},
 		{"one valid", []string{testCIDR10}, false, 1, false},
-		{"mixed", []string{"bad", testCIDR10, "192.168.0.0/16"}, false, 2, true},
+		{"mixed", []string{testInvalidCIDR, testCIDR10, "192.168.0.0/16"}, false, 2, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

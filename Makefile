@@ -1,26 +1,39 @@
-.PHONY: test test-race test-bench fmt vet lint cover tidy
+FUZZTIME ?= 10s
+MODULES := . metrics localization
+
+.PHONY: test test-race test-bench test-fuzz test-leaks fmt vet lint cover tidy
 
 test:
-	go test ./...
+	@for mod in $(MODULES); do echo "==> $$mod"; (cd $$mod && go test ./...); done
 
 test-race:
-	go test -race ./...
+	@for mod in $(MODULES); do echo "==> $$mod"; (cd $$mod && go test -race ./...); done
 
 test-bench:
-	go test -bench=. ./...
+	@for mod in $(MODULES); do echo "==> $$mod"; (cd $$mod && go test -bench=. ./...); done
+
+test-fuzz:
+	go test ./httputil -run '^$$' -fuzz=FuzzDecodeJSON -fuzztime=$(FUZZTIME)
+	go test ./httputil -run '^$$' -fuzz=FuzzGetClientIPWithNets -fuzztime=$(FUZZTIME)
+	go test ./httputil -run '^$$' -fuzz=FuzzSanitizeContentDispositionFilename -fuzztime=$(FUZZTIME)
+	go test ./httputil -run '^$$' -fuzz=FuzzSanitizeSSEField -fuzztime=$(FUZZTIME)
+	go test ./httputil/middleware -run '^$$' -fuzz=FuzzRequestID -fuzztime=$(FUZZTIME)
+
+test-leaks:
+	GOEXPERIMENT=goroutineleakprofile go test ./httputil ./httputil/middleware -run NoGoroutineLeaks
 
 fmt:
 	gofmt -w .
 	goimports -w .
 
 vet:
-	go vet ./...
+	@for mod in $(MODULES); do echo "==> $$mod"; (cd $$mod && go vet ./...); done
 
 lint:
-	golangci-lint run --fix ./...
+	@for mod in $(MODULES); do echo "==> $$mod"; (cd $$mod && golangci-lint run --fix ./...); done
 
 cover:
-	go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out
+	@for mod in $(MODULES); do echo "==> $$mod"; (cd $$mod && go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out | tail -1); done
 
 tidy:
-	go mod tidy
+	@for mod in $(MODULES); do echo "==> $$mod"; (cd $$mod && go mod tidy); done

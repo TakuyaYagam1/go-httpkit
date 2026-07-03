@@ -10,12 +10,13 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 )
 
 const maxContentDispositionFilenameLen = 255
 
-// ErrStreamTruncated is returned by RenderStreamLimited when the source exceeds maxBytes and the response was truncated
-var ErrStreamTruncated = errors.New("response stream truncated: source exceeded max bytes")
+// ErrStreamTooLarge is returned by RenderStreamLimited when the source exceeds maxBytes before the response is written
+var ErrStreamTooLarge = errors.New("response stream exceeds max bytes")
 
 // ErrInvalidContentType is returned when contentType contains CR/LF or disallowed characters (header injection)
 var ErrInvalidContentType = errors.New("content-type contains invalid characters")
@@ -41,10 +42,14 @@ func sanitizeContentDispositionFilename(name string) string {
 		if r < 32 || r == 127 || r == '"' || r == '\\' {
 			continue
 		}
-		b.WriteRune(r)
-		if b.Len() >= maxContentDispositionFilenameLen {
+		runeLen := utf8.RuneLen(r)
+		if runeLen < 0 {
+			continue
+		}
+		if b.Len()+runeLen > maxContentDispositionFilenameLen {
 			break
 		}
+		b.WriteRune(r)
 	}
 	s := b.String()
 	if s == "" || s == "." {
@@ -59,23 +64,21 @@ func RenderJSONAttachment[T any](w http.ResponseWriter, data T, filename string)
 	if err := json.NewEncoder(&buf).Encode(data); err != nil {
 		return fmt.Errorf("encode json attachment: %w", err)
 	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{paramFilename: sanitizeContentDispositionFilename(filename)}))
+	writeAttachmentHeaders(w, "application/json; charset=utf-8", filename)
 	_, err := w.Write(buf.Bytes())
 	return err
 }
 
 // RenderStream streams the response with Content-Disposition attachment. Caller is responsible for closing rc after the function returns (e.g. if rc implements io.Closer, call rc.Close() in defer)
-// For untrusted or unbounded sources use RenderStreamLimited to cap the response size
-// contentType is sent as-is in the Content-Type header; it MUST NOT contain user-controlled input-validate or use a fixed allowlist to avoid header injection (e.g. XSS via attachment)
+// Use RenderStreamLimited when the response must be rejected before write if it exceeds a maximum size
+// contentType must be header-safe ASCII; dynamic values should still come from a service-owned allowlist
 func RenderStream(w http.ResponseWriter, contentType, filename string, rc io.Reader) error {
 	return RenderStreamLimited(w, contentType, filename, rc, 0)
 }
 
 // RenderStreamLimited is like RenderStream but limits the number of bytes copied from rc to maxBytes
-// If maxBytes <= 0, no limit is applied. When maxBytes > 0 and the source exceeds the limit, the response
-// is already committed (headers and up to maxBytes sent) and the function returns ErrStreamTruncated so the
-// caller can log or handle the truncation. Use a pre-buffered reader or Content-Length if you need to reject before sending
+// If maxBytes <= 0, no limit is applied and the response streams directly
+// If maxBytes > 0, the source is buffered up to maxBytes and oversized sources return ErrStreamTooLarge before headers or body are written
 func RenderStreamLimited(w http.ResponseWriter, contentType, filename string, rc io.Reader, maxBytes int64) error {
 	if rc == nil {
 		return errors.New("reader is nil")
@@ -84,27 +87,21 @@ func RenderStreamLimited(w http.ResponseWriter, contentType, filename string, rc
 	if err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", ct)
-	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{paramFilename: sanitizeContentDispositionFilename(filename)}))
-	reader := rc
 	if maxBytes > 0 {
-		reader = io.LimitReader(rc, maxBytes)
-	}
-	_, err = io.Copy(w, reader)
-	if err != nil {
-		return err
-	}
-	if maxBytes > 0 {
-		probe := make([]byte, 1)
-		n, err := rc.Read(probe)
-		if n > 0 {
-			return ErrStreamTruncated
-		}
-		if err != nil && err != io.EOF {
+		var buf bytes.Buffer
+		if _, err := io.Copy(&buf, io.LimitReader(rc, maxBytes+1)); err != nil {
 			return err
 		}
+		if int64(buf.Len()) > maxBytes {
+			return ErrStreamTooLarge
+		}
+		writeAttachmentHeaders(w, ct, filename)
+		_, err = w.Write(buf.Bytes())
+		return err
 	}
-	return nil
+	writeAttachmentHeaders(w, ct, filename)
+	_, err = io.Copy(w, rc)
+	return err
 }
 
 // RenderBytes writes raw bytes with Content-Type and Content-Disposition attachment (filename sanitized)
@@ -113,8 +110,12 @@ func RenderBytes(w http.ResponseWriter, contentType, filename string, data []byt
 	if err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", ct)
-	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{paramFilename: sanitizeContentDispositionFilename(filename)}))
+	writeAttachmentHeaders(w, ct, filename)
 	_, err = w.Write(data)
 	return err
+}
+
+func writeAttachmentHeaders(w http.ResponseWriter, contentType, filename string) {
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{paramFilename: sanitizeContentDispositionFilename(filename)}))
 }

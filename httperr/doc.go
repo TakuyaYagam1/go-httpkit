@@ -20,6 +20,6 @@
 // # Sentinel errors
 //
 // ErrInvalidID, ErrNotAuthenticated, ErrForbidden, ErrNotFound, ErrConflict, ErrGone, ErrUnprocessableEntity,
-// ErrTooManyRequests, and ErrServiceUnavailable return ready-made *HTTPError for common cases
+// ErrTooManyRequests, ErrTimeout, and ErrServiceUnavailable return ready-made *HTTPError for common cases
 // IsExpectedClientError reports whether an error is a 4xx client error
 package httperr

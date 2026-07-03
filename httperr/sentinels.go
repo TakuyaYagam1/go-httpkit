@@ -15,6 +15,7 @@ var (
 	ErrGoneSentinel                = errors.New("gone")
 	ErrUnprocessableEntitySentinel = errors.New("unprocessable entity")
 	ErrTooManyRequestsSentinel     = errors.New("too many requests")
+	ErrTimeoutSentinel             = errors.New("request timeout")
 	ErrServiceUnavailableSentinel  = errors.New("service unavailable")
 )
 
@@ -56,6 +57,11 @@ func ErrUnprocessableEntity() *HTTPError {
 // ErrTooManyRequests returns an HTTPError with status 429 and code RATE_LIMIT_EXCEEDED
 func ErrTooManyRequests() *HTTPError {
 	return New(ErrTooManyRequestsSentinel, http.StatusTooManyRequests, CodeRateLimitExceeded)
+}
+
+// ErrTimeout returns an HTTPError with status 503 and code TIMEOUT
+func ErrTimeout() *HTTPError {
+	return New(ErrTimeoutSentinel, http.StatusServiceUnavailable, CodeTimeout)
 }
 
 // ErrServiceUnavailable returns an HTTPError with status 503 and code SERVICE_UNAVAILABLE

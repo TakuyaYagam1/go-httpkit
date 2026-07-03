@@ -65,7 +65,7 @@ func TestClampPerPage(t *testing.T) {
 
 func TestClampLimit(t *testing.T) {
 	t.Parallel()
-	p := Ptr(5) //nolint:modernize // testing the Ptr helper
+	p := new(5)
 	got := ClampLimit(p, 10, 100)
 	if got != 5 {
 		t.Errorf("ClampLimit(5, 10, 100) = %d, want 5", got)
@@ -121,6 +121,7 @@ func TestTotalPages(t *testing.T) {
 		{11, 10, 2},
 		{25, 10, 3},
 		{0, 0, 0},
+		{-25, 10, 0},
 		{5, -1, 0},
 	}
 	for _, tt := range tests {

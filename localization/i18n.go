@@ -1,4 +1,4 @@
-package middleware
+package localization
 
 import (
 	"context"
@@ -9,34 +9,34 @@ import (
 
 type localizerKey struct{}
 
-// I18nOption configures the I18n middleware
-type I18nOption func(*i18nConfig)
+// Option configures the localization middleware.
+type Option func(*config)
 
-type i18nConfig struct {
+type config struct {
 	queryParam string
 	cookieName string
 }
 
 // WithLanguageQueryParam sets a URL query parameter name (e.g. "lang") used as language preference,
-// checked after cookie but before Accept-Language header
-func WithLanguageQueryParam(param string) I18nOption {
-	return func(c *i18nConfig) { c.queryParam = param }
+// checked after cookie but before Accept-Language header.
+func WithLanguageQueryParam(param string) Option {
+	return func(c *config) { c.queryParam = param }
 }
 
-// WithLanguageCookie sets a cookie name (e.g. "lang") used as language preference, checked first
-func WithLanguageCookie(name string) I18nOption {
-	return func(c *i18nConfig) { c.cookieName = name }
+// WithLanguageCookie sets a cookie name (e.g. "lang") used as language preference, checked first.
+func WithLanguageCookie(name string) Option {
+	return func(c *config) { c.cookieName = name }
 }
 
-// I18n returns middleware that selects a locale from the request (priority: cookie ->  query param ->  Accept-Language),
-// builds an *i18n.Localizer from bundle, and stores it in the context
-// Use GetLocalizer or Localize to retrieve translations in handlers
-// bundle must not be nil
-func I18n(bundle *i18n.Bundle, opts ...I18nOption) func(http.Handler) http.Handler {
+// Middleware selects a locale from the request (priority: cookie -> query param -> Accept-Language),
+// builds an *i18n.Localizer from bundle, and stores it in the context.
+// Use GetLocalizer or Localize to retrieve translations in handlers.
+// bundle must not be nil.
+func Middleware(bundle *i18n.Bundle, opts ...Option) func(http.Handler) http.Handler {
 	if bundle == nil {
-		panic("middleware.I18n: bundle must not be nil")
+		panic("localization.Middleware: bundle must not be nil")
 	}
-	cfg := &i18nConfig{}
+	cfg := &config{}
 	for _, o := range opts {
 		o(cfg)
 	}
@@ -50,15 +50,15 @@ func I18n(bundle *i18n.Bundle, opts ...I18nOption) func(http.Handler) http.Handl
 	}
 }
 
-// GetLocalizer returns the *i18n.Localizer stored by the I18n middleware, or nil if not set
+// GetLocalizer returns the *i18n.Localizer stored by Middleware, or nil if not set.
 func GetLocalizer(ctx context.Context) *i18n.Localizer {
 	l, _ := ctx.Value(localizerKey{}).(*i18n.Localizer) //nolint:revive // nil localizer is a valid state when middleware is not used
 	return l
 }
 
-// Localize translates cfg using the Localizer from ctx (set by I18n middleware)
+// Localize translates cfg using the Localizer from ctx (set by Middleware).
 // If no localizer is in the context or the message is not found, returns cfg.DefaultMessage.Other,
-// or "" if DefaultMessage is nil
+// or "" if DefaultMessage is nil.
 func Localize(ctx context.Context, cfg *i18n.LocalizeConfig) string {
 	if l := GetLocalizer(ctx); l != nil {
 		if s, err := l.Localize(cfg); err == nil {
@@ -71,10 +71,10 @@ func Localize(ctx context.Context, cfg *i18n.LocalizeConfig) string {
 	return ""
 }
 
-// requestLangs builds the language preference list ordered by priority (cookie ->  query param ->  header)
+// requestLangs builds the language preference list ordered by priority (cookie -> query param -> header).
 // go-i18n's NewLocalizer calls language.ParseAcceptLanguage on each string, so the full
-// Accept-Language header value can be passed as-is
-func requestLangs(r *http.Request, cfg *i18nConfig) []string {
+// Accept-Language header value can be passed as-is.
+func requestLangs(r *http.Request, cfg *config) []string {
 	var langs []string
 	if cfg.cookieName != "" {
 		if c, err := r.Cookie(cfg.cookieName); err == nil && c.Value != "" {

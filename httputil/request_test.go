@@ -103,6 +103,18 @@ func TestDecodeAndValidate_TrailingDataWithinLimit(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "INVALID_JSON")
 }
 
+func TestDecodeAndValidate_AllowsTrailingWhitespace(t *testing.T) {
+	t.Parallel()
+	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte("{\"x\":1}\n\t \r\n")))
+	w := httptest.NewRecorder()
+	var v noopValidator
+	got, ok := DecodeAndValidate[struct {
+		X int `json:"x"`
+	}](w, r, v)
+	require.True(t, ok)
+	assert.Equal(t, 1, got.X)
+}
+
 func TestDecodeAndValidate_Success(t *testing.T) {
 	t.Parallel()
 	body := bytes.NewReader([]byte(`{"x":42}`))
@@ -145,6 +157,17 @@ func TestDecodeAndValidateE_TrailingData(t *testing.T) {
 	var he *httperr.HTTPError
 	require.ErrorAs(t, err, &he)
 	assert.Equal(t, "INVALID_JSON", he.GetCode())
+}
+
+func TestDecodeAndValidateE_AllowsTrailingWhitespace(t *testing.T) {
+	t.Parallel()
+	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte("{\"x\":1}\n\t \r\n")))
+	var v noopValidator
+	got, err := DecodeAndValidateE[struct {
+		X int `json:"x"`
+	}](r, v)
+	require.NoError(t, err)
+	assert.Equal(t, 1, got.X)
 }
 
 func TestDecodeAndValidateE_ValidationError(t *testing.T) {
@@ -238,6 +261,20 @@ func TestDecodeJSON_InvalidJSON(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestDecodeJSON_MaxBytesReaderBodyTooLarge(t *testing.T) {
+	t.Parallel()
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(`{"x":123456}`)))
+	r.Body = http.MaxBytesReader(w, r.Body, 4)
+	var out struct {
+		X int `json:"x"`
+	}
+
+	err := DecodeJSON(r, &out)
+
+	require.ErrorIs(t, err, ErrRequestBodyTooLarge)
+}
+
 func TestDecodeJSON_TrailingData(t *testing.T) {
 	t.Parallel()
 	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(`{"x":1} x`)))
@@ -245,6 +282,17 @@ func TestDecodeJSON_TrailingData(t *testing.T) {
 	err := DecodeJSON(r, &out)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "trailing")
+}
+
+func TestDecodeJSON_AllowsTrailingWhitespace(t *testing.T) {
+	t.Parallel()
+	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte("{\"x\":1}\n\t \r\n")))
+	var out struct {
+		X int `json:"x"`
+	}
+	err := DecodeJSON(r, &out)
+	require.NoError(t, err)
+	assert.Equal(t, 1, out.X)
 }
 
 func TestDecodeJSON_NilRequest(t *testing.T) {

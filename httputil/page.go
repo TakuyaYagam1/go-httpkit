@@ -53,14 +53,9 @@ func ParseIntQuery(r *http.Request, key string) *int {
 	return &n
 }
 
-// Ptr returns a pointer to v. Useful for optional query params
-func Ptr[T any](v T) *T { //nolint:modernize // generic pointer helper predates stdlib equivalent
-	return &v
-}
-
 // TotalPages calculates the total number of pages for a given total and perPage
 func TotalPages(total int64, perPage int) int {
-	if perPage <= 0 {
+	if total <= 0 || perPage <= 0 {
 		return 0
 	}
 	n64 := (total + int64(perPage) - 1) / int64(perPage)
