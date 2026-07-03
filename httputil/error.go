@@ -3,10 +3,10 @@ package httputil
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/wahrwelt-kit/go-httpkit/httperr"
-	logger "github.com/wahrwelt-kit/go-logkit"
 )
 
 const msgInternalServerError = "Internal server error"
@@ -14,7 +14,7 @@ const msgInternalServerError = "Internal server error"
 // ErrorHandler handles errors by optionally logging and writing a JSON error response via HandleError
 type ErrorHandler struct {
 	// Logger is optional; when set, Handle logs 4xx at Info and 5xx at Error
-	Logger logger.Logger
+	Logger *slog.Logger
 }
 
 // Handle logs err (if Logger is set) and writes a JSON error response. Returns true if err was non-nil and handled
@@ -24,11 +24,10 @@ func (h *ErrorHandler) Handle(w http.ResponseWriter, r *http.Request, err error,
 		return false
 	}
 	if h.Logger != nil {
-		l := h.Logger.WithError(err)
 		if httperr.IsExpectedClientError(err) {
-			l.Info(msg)
+			h.Logger.InfoContext(r.Context(), msg, slog.Any("error", err))
 		} else {
-			l.Error(msg)
+			h.Logger.ErrorContext(r.Context(), msg, slog.Any("error", err))
 		}
 	}
 	HandleError(w, r, err)

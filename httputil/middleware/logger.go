@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log/slog"
 	"maps"
 	"net"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 	"time"
 
 	"github.com/wahrwelt-kit/go-httpkit/httputil"
-	logger "github.com/wahrwelt-kit/go-logkit"
 )
 
 const (
@@ -62,6 +62,14 @@ func clientIPForLog(r *http.Request, trustedNets []*net.IPNet) string {
 	return httputil.GetClientIPWithNets(r, trustedNets)
 }
 
+func slogAttrs(fields map[string]any) []any {
+	attrs := make([]any, 0, len(fields))
+	for k, v := range fields {
+		attrs = append(attrs, slog.Any(k, v))
+	}
+	return attrs
+}
+
 func redactQuery(raw string, sensitive map[string]struct{}) string {
 	if raw == "" {
 		return ""
@@ -87,7 +95,7 @@ func redactQuery(raw string, sensitive map[string]struct{}) string {
 // and after the handler adds status, latency_ms, and bytes. Log level: Info for 2xx, Warn for 4xx, Error for 5xx
 // Sensitive query params (token, password, secret, api_key, etc.) are always redacted; use WithRedactedParams
 // to extend the list. If log is nil, the middleware is a no-op. CIDRs are parsed once at construction
-func Logger(log logger.Logger, trustedProxyCIDRs []string, opts ...LoggerOption) func(next http.Handler) http.Handler {
+func Logger(log *slog.Logger, trustedProxyCIDRs []string, opts ...LoggerOption) func(next http.Handler) http.Handler {
 	var cfg loggerConfig
 	for _, opt := range opts {
 		opt(&cfg)
@@ -108,7 +116,7 @@ func Logger(log logger.Logger, trustedProxyCIDRs []string, opts ...LoggerOption)
 	}
 	trustedNets, parseErr := httputil.ParseTrustedProxyCIDRs(trustedProxyCIDRs)
 	if log != nil && parseErr != nil && len(trustedProxyCIDRs) > 0 {
-		log.Warn("invalid trusted proxy CIDRs, using RemoteAddr only", logger.Fields{"error": parseErr.Error()})
+		log.Warn("invalid trusted proxy CIDRs, using RemoteAddr only", slog.String("error", parseErr.Error()))
 	}
 	return func(next http.Handler) http.Handler {
 		if log == nil {
@@ -129,27 +137,26 @@ func Logger(log logger.Logger, trustedProxyCIDRs []string, opts ...LoggerOption)
 				"user_agent": r.UserAgent(),
 			}
 			if reqID := GetRequestID(r.Context()); reqID != "" {
-				maps.Copy(fields, logger.RequestID(reqID))
+				maps.Copy(fields, map[string]any{"request_id": reqID})
 			}
-			reqLogger := log.WithFields(fields)
-			ctx := logger.IntoContext(r.Context(), reqLogger)
+			reqLogger := log.With(slogAttrs(fields)...)
 
 			ww := &statusWriter{ResponseWriter: w}
-			next.ServeHTTP(ww, r.WithContext(ctx))
+			next.ServeHTTP(ww, r)
 
 			latency := time.Since(start)
-			reqLogger = reqLogger.WithFields(logger.Fields{
-				keyStatus:    ww.Status(),
-				"latency_ms": latency.Milliseconds(),
-				"bytes":      ww.BytesWritten(),
-			})
+			reqLogger = reqLogger.With(
+				slog.Int(keyStatus, ww.Status()),
+				slog.Int64("latency_ms", latency.Milliseconds()),
+				slog.Int("bytes", ww.BytesWritten()),
+			)
 			switch {
 			case ww.Status() >= statusServerError:
-				reqLogger.Error("http request failed")
+				reqLogger.ErrorContext(r.Context(), "http request failed")
 			case ww.Status() >= statusClientError:
-				reqLogger.Warn("http request error")
+				reqLogger.WarnContext(r.Context(), "http request error")
 			default:
-				reqLogger.Info("http request")
+				reqLogger.InfoContext(r.Context(), "http request")
 			}
 		})
 	}

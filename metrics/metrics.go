@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"io"
+	"log/slog"
 	"maps"
 	"net"
 	"net/http"
@@ -13,8 +14,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-
-	logger "github.com/wahrwelt-kit/go-logkit"
 )
 
 const (
@@ -33,7 +32,7 @@ const (
 type PathFromRequest func(*http.Request) string
 
 type metricsConfig struct {
-	logger       logger.Logger
+	logger       *slog.Logger
 	namespace    string
 	subsystem    string
 	buckets      []float64
@@ -45,7 +44,7 @@ type metricsConfig struct {
 type Option func(*metricsConfig)
 
 // WithLogger sets a logger for metric registration and label compatibility warnings.
-func WithLogger(l logger.Logger) Option {
+func WithLogger(l *slog.Logger) Option {
 	return func(c *metricsConfig) { c.logger = l }
 }
 
@@ -138,7 +137,7 @@ func Middleware(reg prometheus.Registerer, pathFromRequest PathFromRequest, opts
 			if cfg.withInFlight {
 				if !addGaugeVec(requestsInFlight, 1, method, inFlightPath) && cfg.logger != nil {
 					requestsInFlightLabelWarn.Do(func() {
-						cfg.logger.Warn("metrics middleware: " + requestsInFlightName + " has incompatible labels")
+						cfg.logger.WarnContext(r.Context(), "metrics middleware: "+requestsInFlightName+" has incompatible labels")
 					})
 				}
 				defer func() {
@@ -152,12 +151,12 @@ func Middleware(reg prometheus.Registerer, pathFromRequest PathFromRequest, opts
 			path := metricPath(r, pathFromRequest, ww.Status())
 			if !incCounterVec(requestsTotal, method, path, status) && cfg.logger != nil {
 				requestsTotalLabelWarn.Do(func() {
-					cfg.logger.Warn("metrics middleware: " + requestsTotalName + " has incompatible labels")
+					cfg.logger.WarnContext(r.Context(), "metrics middleware: "+requestsTotalName+" has incompatible labels")
 				})
 			}
 			if !observeHistogramVec(requestDuration, duration, method, path, status) && cfg.logger != nil {
 				requestDurationLabelWarn.Do(func() {
-					cfg.logger.Warn("metrics middleware: " + requestDurationName + " has incompatible labels")
+					cfg.logger.WarnContext(r.Context(), "metrics middleware: "+requestDurationName+" has incompatible labels")
 				})
 			}
 		})
@@ -178,55 +177,55 @@ func metricPath(r *http.Request, pathFromRequest PathFromRequest, status int) st
 	return "/unknown"
 }
 
-func registerCounterVec(reg prometheus.Registerer, counter *prometheus.CounterVec, name string, l logger.Logger) *prometheus.CounterVec {
+func registerCounterVec(reg prometheus.Registerer, counter *prometheus.CounterVec, name string, l *slog.Logger) *prometheus.CounterVec {
 	if err := reg.Register(counter); err != nil {
 		if are, ok := errors.AsType[prometheus.AlreadyRegisteredError](err); ok {
 			if cv, ok := are.ExistingCollector.(*prometheus.CounterVec); ok {
 				return cv
 			}
 			if l != nil {
-				l.WithError(err).Warn("metrics middleware: " + name + " already registered with different collector type")
+				l.Warn("metrics middleware: "+name+" already registered with different collector type", slog.Any("error", err))
 			}
 			return counter
 		}
 		if l != nil {
-			l.WithError(err).Warn("metrics middleware: failed to register " + name)
+			l.Warn("metrics middleware: failed to register "+name, slog.Any("error", err))
 		}
 	}
 	return counter
 }
 
-func registerHistogramVec(reg prometheus.Registerer, histogram *prometheus.HistogramVec, name string, l logger.Logger) *prometheus.HistogramVec {
+func registerHistogramVec(reg prometheus.Registerer, histogram *prometheus.HistogramVec, name string, l *slog.Logger) *prometheus.HistogramVec {
 	if err := reg.Register(histogram); err != nil {
 		if are, ok := errors.AsType[prometheus.AlreadyRegisteredError](err); ok {
 			if hv, ok := are.ExistingCollector.(*prometheus.HistogramVec); ok {
 				return hv
 			}
 			if l != nil {
-				l.WithError(err).Warn("metrics middleware: " + name + " already registered with different collector type")
+				l.Warn("metrics middleware: "+name+" already registered with different collector type", slog.Any("error", err))
 			}
 			return histogram
 		}
 		if l != nil {
-			l.WithError(err).Warn("metrics middleware: failed to register " + name)
+			l.Warn("metrics middleware: failed to register "+name, slog.Any("error", err))
 		}
 	}
 	return histogram
 }
 
-func registerGaugeVec(reg prometheus.Registerer, gauge *prometheus.GaugeVec, name string, l logger.Logger) *prometheus.GaugeVec {
+func registerGaugeVec(reg prometheus.Registerer, gauge *prometheus.GaugeVec, name string, l *slog.Logger) *prometheus.GaugeVec {
 	if err := reg.Register(gauge); err != nil {
 		if are, ok := errors.AsType[prometheus.AlreadyRegisteredError](err); ok {
 			if gv, ok := are.ExistingCollector.(*prometheus.GaugeVec); ok {
 				return gv
 			}
 			if l != nil {
-				l.WithError(err).Warn("metrics middleware: " + name + " already registered with different collector type")
+				l.Warn("metrics middleware: "+name+" already registered with different collector type", slog.Any("error", err))
 			}
 			return gauge
 		}
 		if l != nil {
-			l.WithError(err).Warn("metrics middleware: failed to register " + name)
+			l.Warn("metrics middleware: failed to register "+name, slog.Any("error", err))
 		}
 	}
 	return gauge

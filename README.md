@@ -17,6 +17,8 @@ The root module contains the JSON API helpers and generic middleware. Prometheus
 
 ```go
 import (
+	"log/slog"
+
 	"github.com/wahrwelt-kit/go-httpkit/httperr"
 	"github.com/wahrwelt-kit/go-httpkit/httputil"
 	"github.com/wahrwelt-kit/go-httpkit/httputil/middleware"
@@ -48,8 +50,8 @@ HTTP-aware errors: HTTPError (Err, StatusCode, Code, IsExpected), New, CodeFromS
 
 ### httputil/middleware
 
-- **Logger(log, cidrs, opts...)**: request logging; WithRedactedParams to add sensitive query params; WithSkipPaths to suppress health/metrics noise
-- **Recoverer(log)**: panic recovery, 500 response, stack log via go-logkit
+- **Logger(log, cidrs, opts...)**: request logging via `*slog.Logger`; WithRedactedParams to add sensitive query params; WithSkipPaths to suppress health/metrics noise
+- **Recoverer(log)**: panic recovery, 500 response, stack log via `*slog.Logger`
 - **RequireJSON(maxBodyBytes)**: requires JSON Content-Type for JSON body routes and optionally limits request body size
 - **ContextTimeout(d)**: attaches a request context deadline; HandleError maps context.DeadlineExceeded to 503 TIMEOUT
 - **SecurityHeaders**: X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, CSP, COOP, CORP; WithHSTS for HTTPS-only services
@@ -67,6 +69,7 @@ go-i18n middleware: resolves language from cookie, query parameter, and Accept-L
 ## Example
 
 ```go
+log := slog.Default()
 errHandler := httputil.ErrorHandler{Logger: log}
 
 r.Use(middleware.Recoverer(log))

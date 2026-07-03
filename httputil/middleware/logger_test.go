@@ -1,28 +1,95 @@
 package middleware
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	logger "github.com/wahrwelt-kit/go-logkit"
-	logmock "github.com/wahrwelt-kit/go-logkit/mock"
 )
+
+type capturedLogRecord struct {
+	level   slog.Level
+	message string
+	attrs   map[string]any
+}
+
+type captureLogSink struct {
+	mu      sync.Mutex
+	records []capturedLogRecord
+}
+
+func (s *captureLogSink) Records() []capturedLogRecord {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]capturedLogRecord(nil), s.records...)
+}
+
+func (s *captureLogSink) Last() capturedLogRecord {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.records) == 0 {
+		return capturedLogRecord{attrs: map[string]any{}}
+	}
+	return s.records[len(s.records)-1]
+}
+
+type captureLogHandler struct {
+	sink  *captureLogSink
+	attrs []slog.Attr
+}
+
+func newCaptureLogger() (*slog.Logger, *captureLogSink) {
+	sink := &captureLogSink{}
+	return slog.New(&captureLogHandler{sink: sink}), sink
+}
+
+func (h *captureLogHandler) Enabled(context.Context, slog.Level) bool {
+	return true
+}
+
+func (h *captureLogHandler) Handle(_ context.Context, r slog.Record) error {
+	attrs := make(map[string]any, len(h.attrs)+r.NumAttrs())
+	for _, attr := range h.attrs {
+		attrs[attr.Key] = attr.Value.Any()
+	}
+	r.Attrs(func(attr slog.Attr) bool {
+		attrs[attr.Key] = attr.Value.Any()
+		return true
+	})
+	h.sink.mu.Lock()
+	h.sink.records = append(h.sink.records, capturedLogRecord{
+		level:   r.Level,
+		message: r.Message,
+		attrs:   attrs,
+	})
+	h.sink.mu.Unlock()
+	return nil
+}
+
+func (h *captureLogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	next := &captureLogHandler{
+		sink:  h.sink,
+		attrs: append([]slog.Attr(nil), h.attrs...),
+	}
+	next.attrs = append(next.attrs, attrs...)
+	return next
+}
+
+func (h *captureLogHandler) WithGroup(string) slog.Handler {
+	return h
+}
 
 func TestLogger_CallsNext(t *testing.T) {
 	t.Parallel()
-	root := logmock.NewMockLogger(t)
-	child := logmock.NewMockLogger(t)
-	root.On("WithFields", mock.Anything).Return(child)
-	child.On("WithFields", mock.Anything).Return(child)
-	child.On("Info", "http request", mock.Anything).Return()
+	log, _ := newCaptureLogger()
 
 	called := false
-	handler := Logger(root, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := Logger(log, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -37,18 +104,9 @@ func TestLogger_CallsNext(t *testing.T) {
 
 func TestLogger_LogsInfo_OnSuccess(t *testing.T) {
 	t.Parallel()
-	root := logmock.NewMockLogger(t)
-	child := logmock.NewMockLogger(t)
-	var startFields, endFields logger.Fields
-	root.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
-	}).Return(child)
-	child.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		endFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
-	}).Return(child)
-	child.On("Info", "http request", mock.Anything).Return()
+	log, sink := newCaptureLogger()
 
-	handler := Logger(root, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := Logger(log, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -58,28 +116,23 @@ func TestLogger_LogsInfo_OnSuccess(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	assert.Equal(t, "GET", startFields["method"])
-	assert.Equal(t, "/health", startFields["path"])
-	assert.Equal(t, "192.168.1.1", startFields["ip"])
-	assert.Equal(t, "test-agent", startFields["user_agent"])
-	assert.Equal(t, http.StatusOK, endFields["status"])
-	assert.Contains(t, endFields, "latency_ms")
-	assert.Contains(t, endFields, "bytes")
-	child.AssertCalled(t, "Info", "http request")
+	rec := sink.Last()
+	assert.Equal(t, slog.LevelInfo, rec.level)
+	assert.Equal(t, "http request", rec.message)
+	assert.Equal(t, "GET", rec.attrs["method"])
+	assert.Equal(t, "/health", rec.attrs["path"])
+	assert.Equal(t, "192.168.1.1", rec.attrs["ip"])
+	assert.Equal(t, "test-agent", rec.attrs["user_agent"])
+	assert.EqualValues(t, http.StatusOK, rec.attrs["status"])
+	assert.Contains(t, rec.attrs, "latency_ms")
+	assert.Contains(t, rec.attrs, "bytes")
 }
 
 func TestLogger_LogsWarn_On4xx(t *testing.T) {
 	t.Parallel()
-	root := logmock.NewMockLogger(t)
-	child := logmock.NewMockLogger(t)
-	var endFields logger.Fields
-	root.On("WithFields", mock.Anything).Return(child)
-	child.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		endFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
-	}).Return(child)
-	child.On("Warn", "http request error", mock.Anything).Return()
+	log, sink := newCaptureLogger()
 
-	handler := Logger(root, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := Logger(log, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
 
@@ -87,22 +140,17 @@ func TestLogger_LogsWarn_On4xx(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusForbidden, endFields["status"])
-	child.AssertCalled(t, "Warn", "http request error")
+	rec := sink.Last()
+	assert.Equal(t, slog.LevelWarn, rec.level)
+	assert.Equal(t, "http request error", rec.message)
+	assert.EqualValues(t, http.StatusForbidden, rec.attrs["status"])
 }
 
 func TestLogger_LogsError_On5xx(t *testing.T) {
 	t.Parallel()
-	root := logmock.NewMockLogger(t)
-	child := logmock.NewMockLogger(t)
-	var endFields logger.Fields
-	root.On("WithFields", mock.Anything).Return(child)
-	child.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		endFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
-	}).Return(child)
-	child.On("Error", "http request failed", mock.Anything).Return()
+	log, sink := newCaptureLogger()
 
-	handler := Logger(root, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := Logger(log, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 
@@ -110,22 +158,17 @@ func TestLogger_LogsError_On5xx(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusInternalServerError, endFields["status"])
-	child.AssertCalled(t, "Error", "http request failed")
+	rec := sink.Last()
+	assert.Equal(t, slog.LevelError, rec.level)
+	assert.Equal(t, "http request failed", rec.message)
+	assert.EqualValues(t, http.StatusInternalServerError, rec.attrs["status"])
 }
 
 func TestLogger_IncludesQueryAndRequestID_WhenSet(t *testing.T) {
 	t.Parallel()
-	root := logmock.NewMockLogger(t)
-	child := logmock.NewMockLogger(t)
-	var startFields logger.Fields
-	root.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
-	}).Return(child)
-	child.On("WithFields", mock.Anything).Return(child)
-	child.On("Info", "http request", mock.Anything).Return()
+	log, sink := newCaptureLogger()
 
-	handler := RequestID()(Logger(root, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := RequestID()(Logger(log, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
 
@@ -133,23 +176,17 @@ func TestLogger_IncludesQueryAndRequestID_WhenSet(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	assert.Equal(t, "q=test&page=1", startFields["query"])
-	assert.Contains(t, startFields, "request_id")
-	assert.NotEmpty(t, startFields["request_id"])
+	rec := sink.Last()
+	assert.Equal(t, "q=test&page=1", rec.attrs["query"])
+	assert.Contains(t, rec.attrs, "request_id")
+	assert.NotEmpty(t, rec.attrs["request_id"])
 }
 
 func TestLogger_RedactsSensitiveQueryParams(t *testing.T) {
 	t.Parallel()
-	root := logmock.NewMockLogger(t)
-	child := logmock.NewMockLogger(t)
-	var startFields logger.Fields
-	root.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
-	}).Return(child)
-	child.On("WithFields", mock.Anything).Return(child)
-	child.On("Info", "http request", mock.Anything).Return()
+	log, sink := newCaptureLogger()
 
-	handler := Logger(root, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := Logger(log, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -157,8 +194,7 @@ func TestLogger_RedactsSensitiveQueryParams(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	require.NotNil(t, startFields)
-	query, ok := startFields["query"].(string)
+	query, ok := sink.Last().attrs["query"].(string)
 	require.True(t, ok)
 	assert.Contains(t, query, "REDACTED")
 	assert.NotContains(t, query, "secret")
@@ -166,16 +202,9 @@ func TestLogger_RedactsSensitiveQueryParams(t *testing.T) {
 
 func TestLogger_WithRedactedParams_RedactsCustomParam(t *testing.T) {
 	t.Parallel()
-	root := logmock.NewMockLogger(t)
-	child := logmock.NewMockLogger(t)
-	var startFields logger.Fields
-	root.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
-	}).Return(child)
-	child.On("WithFields", mock.Anything).Return(child)
-	child.On("Info", "http request", mock.Anything).Return()
+	log, sink := newCaptureLogger()
 
-	handler := Logger(root, nil, WithRedactedParams("apiToken", "x_custom"))(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := Logger(log, nil, WithRedactedParams("apiToken", "x_custom"))(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -183,8 +212,7 @@ func TestLogger_WithRedactedParams_RedactsCustomParam(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	require.NotNil(t, startFields)
-	query, ok := startFields["query"].(string)
+	query, ok := sink.Last().attrs["query"].(string)
 	require.True(t, ok)
 	assert.Contains(t, query, "REDACTED")
 	assert.NotContains(t, query, "abc")
@@ -194,11 +222,10 @@ func TestLogger_WithRedactedParams_RedactsCustomParam(t *testing.T) {
 
 func TestLogger_WithSkipPaths_DoesNotLog(t *testing.T) {
 	t.Parallel()
-	root := logmock.NewMockLogger(t)
-	// No mock expectations - if Logger calls any method on root, testify will fail the test
+	log, sink := newCaptureLogger()
 
 	called := false
-	handler := Logger(root, nil, WithSkipPaths("/health", "/ready"))(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := Logger(log, nil, WithSkipPaths("/health", "/ready"))(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -209,17 +236,14 @@ func TestLogger_WithSkipPaths_DoesNotLog(t *testing.T) {
 
 	assert.True(t, called, "handler must still be called for skipped paths")
 	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Empty(t, sink.Records())
 }
 
 func TestLogger_WithSkipPaths_LogsNonSkipped(t *testing.T) {
 	t.Parallel()
-	root := logmock.NewMockLogger(t)
-	child := logmock.NewMockLogger(t)
-	root.On("WithFields", mock.Anything).Return(child)
-	child.On("WithFields", mock.Anything).Return(child)
-	child.On("Info", "http request", mock.Anything).Return()
+	log, sink := newCaptureLogger()
 
-	handler := Logger(root, nil, WithSkipPaths("/health"))(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := Logger(log, nil, WithSkipPaths("/health"))(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -228,21 +252,14 @@ func TestLogger_WithSkipPaths_LogsNonSkipped(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	child.AssertCalled(t, "Info", "http request")
+	assert.Equal(t, "http request", sink.Last().message)
 }
 
 func TestLogger_DoesNotRedactSubstringParamName(t *testing.T) {
 	t.Parallel()
-	root := logmock.NewMockLogger(t)
-	child := logmock.NewMockLogger(t)
-	var startFields logger.Fields
-	root.On("WithFields", mock.Anything).Run(func(args mock.Arguments) {
-		startFields = args.Get(0).(logger.Fields) //nolint:forcetypeassert,revive // testify mock args are typed at call site
-	}).Return(child)
-	child.On("WithFields", mock.Anything).Return(child)
-	child.On("Info", "http request", mock.Anything).Return()
+	log, sink := newCaptureLogger()
 
-	handler := Logger(root, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := Logger(log, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -250,8 +267,7 @@ func TestLogger_DoesNotRedactSubstringParamName(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	require.NotNil(t, startFields)
-	query, ok := startFields["query"].(string)
+	query, ok := sink.Last().attrs["query"].(string)
 	require.True(t, ok)
 	assert.Equal(t, "mytokenvalue=foo", query)
 }

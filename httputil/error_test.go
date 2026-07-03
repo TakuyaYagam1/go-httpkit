@@ -1,19 +1,19 @@
 package httputil
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/wahrwelt-kit/go-httpkit/httperr"
-	logmock "github.com/wahrwelt-kit/go-logkit/mock"
 )
 
 func TestHandleError_HTTPError(t *testing.T) {
@@ -171,10 +171,8 @@ func TestErrorHandler_Handle_Nil(t *testing.T) {
 
 func TestErrorHandler_Handle_WithLogger_4xx(t *testing.T) {
 	t.Parallel()
-	l := logmock.NewMockLogger(t)
-	child := logmock.NewMockLogger(t)
-	l.On("WithError", mock.Anything).Return(child)
-	child.On("Info", "client error").Return()
+	var logs bytes.Buffer
+	l := slog.New(slog.NewJSONHandler(&logs, nil))
 
 	h := &ErrorHandler{Logger: l}
 	w := httptest.NewRecorder()
@@ -182,15 +180,15 @@ func TestErrorHandler_Handle_WithLogger_4xx(t *testing.T) {
 	err := httperr.New(errors.New("bad"), http.StatusBadRequest, "BAD_REQUEST")
 	assert.True(t, h.Handle(w, r, err, "client error"))
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	child.AssertCalled(t, "Info", "client error")
+	assert.Contains(t, logs.String(), `"level":"INFO"`)
+	assert.Contains(t, logs.String(), `"msg":"client error"`)
+	assert.Contains(t, logs.String(), `"error"`)
 }
 
 func TestErrorHandler_Handle_WithLogger_5xx(t *testing.T) {
 	t.Parallel()
-	l := logmock.NewMockLogger(t)
-	child := logmock.NewMockLogger(t)
-	l.On("WithError", mock.Anything).Return(child)
-	child.On("Error", "server error").Return()
+	var logs bytes.Buffer
+	l := slog.New(slog.NewJSONHandler(&logs, nil))
 
 	h := &ErrorHandler{Logger: l}
 	w := httptest.NewRecorder()
@@ -198,7 +196,9 @@ func TestErrorHandler_Handle_WithLogger_5xx(t *testing.T) {
 	err := errors.New("internal")
 	assert.True(t, h.Handle(w, r, err, "server error"))
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	child.AssertCalled(t, "Error", "server error")
+	assert.Contains(t, logs.String(), `"level":"ERROR"`)
+	assert.Contains(t, logs.String(), `"msg":"server error"`)
+	assert.Contains(t, logs.String(), `"error"`)
 }
 
 func TestSanitizeValidationFieldName(t *testing.T) {

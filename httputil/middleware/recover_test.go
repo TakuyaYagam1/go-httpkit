@@ -1,20 +1,17 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	logger "github.com/wahrwelt-kit/go-logkit"
 )
 
 func TestRecoverer_NoPanic(t *testing.T) {
 	t.Parallel()
-	log, err := logger.New(logger.WithLevel(logger.InfoLevel), logger.WithOutput(logger.ConsoleOutput))
-	require.NoError(t, err)
+	log := slog.New(slog.DiscardHandler)
 	chain := Recoverer(log)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -26,7 +23,7 @@ func TestRecoverer_NoPanic(t *testing.T) {
 
 func TestRecoverer_Panic_500(t *testing.T) {
 	t.Parallel()
-	chain := Recoverer(logger.Noop())(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+	chain := Recoverer(slog.New(slog.DiscardHandler))(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		panic("test panic")
 	}))
 	w := httptest.NewRecorder()
